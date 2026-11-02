@@ -1,6 +1,8 @@
 import { app, BrowserWindow, Menu, screen, shell as electronShell } from 'electron'
 import path from 'node:path'
 import os from 'node:os'
+import { fileURLToPath } from 'node:url'
+import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import { registerAiIpc, importKeys } from './ai.js'
 import { registerZshIpc } from './zsh-plugins.js'
@@ -30,10 +32,19 @@ const serve = process.argv.includes('--serve')
 if (serve) {
   // Own Chromium profile, so it can run next to the desktop app.
   app.setPath('sessionData', path.join(app.getPath('userData'), 'serve-session'))
-  // No display (server, container, HarmonyOS Linux env): run Chromium headless.
-  if (process.platform === 'linux' && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
-    app.commandLine.appendSwitch('ozone-platform', 'headless')
+  // No display (server, container, HarmonyOS Linux env): Chromium picks its platform before
+  // this code runs, so start again with --ozone-platform=headless and pass the exit code on.
+  if (
+    process.platform === 'linux' &&
+    !process.env.DISPLAY &&
+    !process.env.WAYLAND_DISPLAY &&
+    !process.argv.some((a) => a.startsWith('--ozone-platform'))
+  ) {
+    const r = spawnSync(process.execPath, [...process.argv.slice(1), '--ozone-platform=headless'], { stdio: 'inherit' })
+    process.exit(r.status ?? 1)
   }
+  // Nothing is drawn in serve mode; skip the GPU (and its noisy errors on servers).
+  app.disableHardwareAcceleration()
 }
 
 // Window look (blur behind the window) survives restarts.
@@ -87,12 +98,21 @@ function openDir(p) {
     if (app.isReady() && !mainWindow && !serve) createWindow()
   }
 }
+// Linux file managers pass file:// URLs (the .desktop entry uses %U).
 const argvDirs = (argv, base = process.cwd()) =>
   argv
     .slice(app.isPackaged ? 1 : 2)
     .filter((a) => !a.startsWith('-'))
-    .map((a) => path.resolve(base, a))
-    .filter((a) => fs.existsSync(a))
+    .map((a) => {
+      try {
+        return a.startsWith('file://') ? fileURLToPath(a) : path.resolve(base, a)
+      } catch {
+        return ''
+      }
+    })
+    .filter((a) => a && fs.existsSync(a))
+// Launcher actions (.desktop "New Tab" / "Settings") reach a running app as flags.
+const argvAction = (argv) => (argv.includes('--new-tab') ? 'newTab' : argv.includes('--settings') ? 'settings' : null)
 app.on('open-file', (e, p) => {
   e.preventDefault()
   openDir(p)
@@ -331,7 +351,13 @@ if (secondary) app.quit()
 else
   app.on('second-instance', (_e, argv, cwd) => {
     const dirs = argvDirs(argv, cwd)
+    const action = argvAction(argv)
     if (dirs.length) dirs.forEach(openDir)
+    else if (action && mainWindow) {
+      send('menu:action', action)
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.focus()
+    }
     else if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore()
       mainWindow.focus()
@@ -357,6 +383,7 @@ else if (!secondary) app.whenReady().then(() => {
   buildMenu()
   createWindow()
   argvDirs(process.argv).filter((d) => d !== app.getAppPath()).forEach(openDir)
+  if (argvAction(process.argv) === 'settings') mainWindow.webContents.once('did-finish-load', () => send('menu:action', 'settings'))
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })

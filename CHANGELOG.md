@@ -9,6 +9,8 @@ All notable changes to 117Terminal. Versions follow [SemVer](https://semver.org)
   `117terminal <dir>` opens a new tab there. With the app already running, `117terminal <dir>` adds a tab to it.
 - The window reopens where you left it, at the same size (or maximized). If that spot is on a display that is gone, it
   opens centred instead.
+- **Linux desktop integration**: 117Terminal is listed as a terminal (`TerminalEmulator`), file managers offer
+  *Open With › 117Terminal* for folders, and the launcher icon has *New Tab*, *Settings* and *Open in Browser* actions.
 - **Secure Keyboard Entry** (app menu, like Terminal.app): stops other apps from reading your keystrokes while
   117Terminal is in front. It stays on across restarts.
 
@@ -21,6 +23,12 @@ All notable changes to 117Terminal. Versions follow [SemVer](https://semver.org)
   Keychain back on in Settings › AI Agent.
 
 ### Fixed
+- **Linux: the `.deb` now depends on `libgbm1`** (and the `.rpm` on `mesa-libgbm`). On a minimal Ubuntu 24.04 install the
+  app could not start without it. `libasound2t64` is now listed first: with `libasound2 | libasound2t64`, apt could pick
+  `liboss4-salsa-asound2`, which crashes the app with "undefined symbol: snd_device_name_get_hint". The unused `libxss1`/`libXScrnSaver` dependency is gone and `xdg-utils` (for opening
+  links) is added.
+- **Linux: `117terminal --serve` without a display** (servers, containers, the HarmonyOS PC Linux environment) failed with
+  "Missing X server". It now restarts itself in headless mode, and serve mode no longer starts the GPU.
 - The app no longer reads saved keys at launch: the provider list shows a stored 4-character hint instead.
 
 ## [0.1.3] — 2026-11-02
