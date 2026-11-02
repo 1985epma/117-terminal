@@ -2,7 +2,7 @@
 
 All notable changes to 117Terminal. Versions follow [SemVer](https://semver.org); dates are UTC.
 
-## [Unreleased]
+## [0.1.2] — 2026-11-02
 
 ### Added
 - **Voice commands** (`⌘⇧Space` or the 🎙 button at the top right) in English (US), Brazilian Portuguese and Spanish,
