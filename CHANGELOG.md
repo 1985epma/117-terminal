@@ -5,6 +5,20 @@ All notable changes to 117Terminal. Versions follow [SemVer](https://semver.org)
 ## [Unreleased]
 
 ### Added
+- **A real command line**: `117terminal --help` and `--version`; subcommands `open`, `run "<cmd>"` (new tab running it),
+  `theme <name>`, `serve`, `doctor` (libraries, shell, agent, MCP, web port) and `completions bash|zsh|fish`. Unknown
+  options and values are errors with a suggestion (`--serv` → `--serve`), exit codes are documented (0/1/2, 3 = port in
+  use), and colors follow `NO_COLOR`/`--no-color`.
+- From a terminal the app opens in the background and returns the prompt; `--wait` keeps it attached. With the app
+  open, a second `117terminal …` hands its folders, `run`, `theme`, `--new-tab` or `--settings` to it.
+- Web mode for scripts: stdout is only the URL (or `--json`), messages go to stderr; `--token-file` and `T117_TOKEN`
+  keep the token out of `ps`; the running link is also in `web.json` (for Windows, where a GUI app has no console).
+- Slash commands: `/help <command>` with examples, short forms (`/s` settings, `/a` agent, `/m` music, `/v` voice,
+  `/t` theme), and `/word` that is neither a command nor a real path suggests the closest command instead of failing in
+  the shell.
+- `install.sh`: `--uninstall`, `--force`, built-in `--help` (works through `curl | bash`), no colors outside a terminal,
+  and nothing happens when that version is already installed. It ships with each release (in `SHA256SUMS.txt`), and a
+  new CI workflow installs every release on Ubuntu 22.04/24.04, Debian 12 and Fedora 41 (x86_64 and arm64).
 - **One-line Linux installer** (`install.sh`): installs the required libraries first, then the `.deb` or `.rpm` for the
   machine's CPU after checking it against `SHA256SUMS.txt`. Picks the right package names on old and new releases
   (`libgtk-3-0`/`libgtk-3-0t64`, `libasound2`/`libasound2t64`). `--user` installs the portable build in `~/.local`
@@ -27,6 +41,8 @@ All notable changes to 117Terminal. Versions follow [SemVer](https://semver.org)
   Keychain back on in Settings › AI Agent.
 
 ### Fixed
+- Web mode with its port already taken hung instead of exiting: the WebSocket server re-emitted the error as an
+  uncaught exception. It now exits with code 3 (and the Settings button shows the error).
 - **Linux: the `.deb` now depends on `libgbm1`** (and the `.rpm` on `mesa-libgbm`). On a minimal Ubuntu 24.04 install the
   app could not start without it. `libasound2t64` is now listed first: with `libasound2 | libasound2t64`, apt could pick
   `liboss4-salsa-asound2`, which crashes the app with "undefined symbol: snd_device_name_get_hint". The unused `libxss1`/`libXScrnSaver` dependency is gone and `xdg-utils` (for opening

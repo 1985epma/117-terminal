@@ -1,0 +1,70 @@
+name: Install test
+
+# Installs a published release with install.sh on clean distro containers, on x86_64 and
+# arm64, then checks that no library is missing and that web mode answers.
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release to install (e.g. 0.1.3); empty = latest'
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    name: ${{ matrix.image }} (${{ matrix.arch }})
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ['ubuntu:24.04', 'ubuntu:22.04', 'debian:12', 'fedora:41']
+        arch: [x86_64, arm64]
+        include:
+          - arch: x86_64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pick the version
+        id: v
+        env:
+          INPUT: ${{ github.event.inputs.version }}
+          TAG: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          V="${INPUT:-${TAG#v}}"
+          echo "version=${V}" >> "$GITHUB_OUTPUT"
+          echo "Installing: ${V:-latest}"
+
+      - name: Install and check
+        env:
+          IMAGE: ${{ matrix.image }}
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          docker run --rm -e VERSION -v "$PWD/install.sh:/install.sh:ro" "$IMAGE" bash -euo pipefail -c '
+            if command -v apt-get >/dev/null; then
+              apt-get update -qq >/dev/null
+              DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends curl ca-certificates >/dev/null
+            fi
+            bash /install.sh
+            missing="$(for f in /opt/117Terminal/117terminal $(find /opt/117Terminal -name "*.node"); do ldd "$f" | grep "not found" || true; done)"
+            if [ -n "$missing" ]; then echo "::error::missing libraries: $missing"; exit 1; fi
+            (117terminal --serve --no-sandbox --ozone-platform=headless --port 7117 >/tmp/serve.log 2>&1 &)
+            for _ in $(seq 1 30); do
+              code="$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:7117/ || true)"
+              [ "$code" = "401" ] && break
+              sleep 1
+            done
+            if [ "$code" != "401" ]; then cat /tmp/serve.log; echo "::error::web mode did not answer (got $code)"; exit 1; fi
+            echo "web mode OK"
+            bash /install.sh | grep -q "already installed"
+            bash /install.sh --uninstall
+          '

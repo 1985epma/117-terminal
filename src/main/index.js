@@ -1,8 +1,7 @@
 import { app, BrowserWindow, Menu, screen, shell as electronShell } from 'electron'
 import path from 'node:path'
 import os from 'node:os'
-import { fileURLToPath } from 'node:url'
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import { registerAiIpc, importKeys } from './ai.js'
 import { registerZshIpc } from './zsh-plugins.js'
@@ -15,20 +14,52 @@ import { ipcMain, addSink, broadcastWindow } from './ipc.js'
 import { registerCoreIpc, killOwner } from './core.js'
 import { startWebServer } from './web-server.js'
 import { appName, isKeyExport, runKeyExport, migrateBeforeReady } from './migrate.js'
+import { parseArgs, helpText, usageError, completions, doctor, resolveToken, EXIT } from './cli.js'
 
 // Shown in the macOS menu bar, Dock and app switcher instead of "Electron".
 app.setName(appName())
 app.setAboutPanelOptions({ applicationName: '117Terminal', applicationVersion: app.getVersion() })
-const migratedKeys = isKeyExport() ? null : migrateBeforeReady()
 
-// 117terminal --serve [--port 7117] [--host 127.0.0.1] [--token …] [--open]
-function flag(name) {
-  const i = process.argv.findIndex((a) => a === `--${name}` || a.startsWith(`--${name}=`))
-  if (i === -1) return undefined
-  const a = process.argv[i]
-  return a.includes('=') ? a.slice(a.indexOf('=') + 1) : process.argv[i + 1]?.startsWith('--') ? true : process.argv[i + 1] ?? true
+// ---- command line (see cli.js) ---------------------------------------------
+const userArgs = process.argv.slice(app.isPackaged ? 1 : 2)
+const cli = isKeyExport() ? parseArgs([], undefined, { lenient: true }) : parseArgs(userArgs)
+const finish = (text, code = EXIT.OK) => process.stdout.write(text, () => process.exit(code))
+// Commands that only print, then exit without a window.
+const printOnly = !!cli.error || ['help', 'version', 'completions', 'doctor'].includes(cli.command)
+if (cli.error) process.exit(usageError(cli.error))
+else if (cli.command === 'help') finish(helpText(app.getVersion()))
+else if (cli.command === 'version') finish(`117Terminal ${app.getVersion()}\n`)
+else if (cli.command === 'completions') finish(completions(cli.shell))
+else if (cli.command === 'doctor') {
+  app.dock?.hide()
+  doctor({ version: app.getVersion(), userData: app.getPath('userData'), json: !!cli.flags.json }).then((code) => process.exit(code))
 }
-const serve = process.argv.includes('--serve')
+
+// Opened from a terminal: start the window in the background and give the prompt back
+// (like `code .`). --wait keeps it attached.
+const guiCommand = ['gui', 'run', 'theme'].includes(cli.command)
+if (
+  guiCommand &&
+  !printOnly &&
+  app.isPackaged &&
+  process.platform !== 'win32' &&
+  process.stdout.isTTY &&
+  !cli.flags.wait &&
+  !process.env.T117_DETACHED
+) {
+  spawn(process.execPath, userArgs, {
+    detached: true,
+    stdio: 'ignore',
+    cwd: process.cwd(),
+    env: { ...process.env, T117_DETACHED: '1' }
+  }).unref()
+  process.exit(EXIT.OK)
+}
+delete process.env.T117_DETACHED // keep it out of the shells this app starts
+
+const migratedKeys = isKeyExport() || printOnly ? null : migrateBeforeReady()
+
+const serve = cli.command === 'serve'
 if (serve) {
   // Own Chromium profile, so it can run next to the desktop app.
   app.setPath('sessionData', path.join(app.getPath('userData'), 'serve-session'))
@@ -77,42 +108,37 @@ function savedBounds() {
 
 let mainWindow = null
 
-// Folders opened from Finder ("Open With", dropped on the Dock icon) or passed as
-// `117terminal <dir>` become new tabs. They wait until the page can take them.
+// Folders opened from Finder ("Open With", dropped on the Dock icon), `117terminal <dir>`,
+// `117terminal run …` and launcher actions all become renderer actions. They wait until
+// the page can take them.
 let rendererReady = false
-const pendingDirs = []
-function openDir(p) {
-  let dir = null
-  try {
-    dir = fs.statSync(p).isDirectory() ? p : path.dirname(p)
-  } catch {
-    return
-  }
+const pendingActions = []
+function deliver(action) {
   if (rendererReady && mainWindow) {
-    send('menu:action', `openDir:${dir}`)
+    send('menu:action', action)
     if (mainWindow.isMinimized()) mainWindow.restore()
     mainWindow.show()
     mainWindow.focus()
   } else {
-    pendingDirs.push(dir)
+    pendingActions.push(action)
     if (app.isReady() && !mainWindow && !serve) createWindow()
   }
 }
-// Linux file managers pass file:// URLs (the .desktop entry uses %U).
-const argvDirs = (argv, base = process.cwd()) =>
-  argv
-    .slice(app.isPackaged ? 1 : 2)
-    .filter((a) => !a.startsWith('-'))
-    .map((a) => {
-      try {
-        return a.startsWith('file://') ? fileURLToPath(a) : path.resolve(base, a)
-      } catch {
-        return ''
-      }
-    })
-    .filter((a) => a && fs.existsSync(a))
-// Launcher actions (.desktop "New Tab" / "Settings") reach a running app as flags.
-const argvAction = (argv) => (argv.includes('--new-tab') ? 'newTab' : argv.includes('--settings') ? 'settings' : null)
+function openDir(p) {
+  try {
+    deliver(`openDir:${fs.statSync(p).isDirectory() ? p : path.dirname(p)}`)
+  } catch {
+    /* gone */
+  }
+}
+// What a launch asks the window to do (first launch or a second one).
+function dispatch(c) {
+  c.dirs.forEach(openDir)
+  if (c.run) deliver(`runCmd:${JSON.stringify({ cwd: c.cwd, command: c.run })}`)
+  if (c.theme) deliver(`theme:${c.theme}`)
+  if (c.flags['new-tab']) deliver('newTab')
+  if (c.flags.settings) deliver('settings')
+}
 app.on('open-file', (e, p) => {
   e.preventDefault()
   openDir(p)
@@ -161,7 +187,7 @@ function createWindow() {
   rendererReady = false
   mainWindow.webContents.on('did-finish-load', () => {
     rendererReady = true
-    for (const dir of pendingDirs.splice(0)) send('menu:action', `openDir:${dir}`)
+    for (const action of pendingActions.splice(0)) send('menu:action', action)
   })
 
   if (windowPrefs().maximized) mainWindow.maximize()
@@ -345,19 +371,14 @@ ipcMain.handle('window:blur', (_e, on) => {
   return windowPrefs()
 })
 
-// One app per user (packaged builds): `117terminal <dir>` while it runs opens a tab there.
-const secondary = app.isPackaged && !serve && !isKeyExport() && !app.requestSingleInstanceLock()
+// One app per user (packaged builds): a second launch hands its arguments to the running app.
+const secondary = app.isPackaged && guiCommand && !printOnly && !isKeyExport() && !app.requestSingleInstanceLock()
 if (secondary) app.quit()
 else
   app.on('second-instance', (_e, argv, cwd) => {
-    const dirs = argvDirs(argv, cwd)
-    const action = argvAction(argv)
-    if (dirs.length) dirs.forEach(openDir)
-    else if (action && mainWindow) {
-      send('menu:action', action)
-      if (mainWindow.isMinimized()) mainWindow.restore()
-      mainWindow.focus()
-    }
+    const c = parseArgs(argv.slice(app.isPackaged ? 1 : 2), cwd, { lenient: true })
+    const asked = c.dirs.length || c.run || c.theme || c.flags['new-tab'] || c.flags.settings
+    if (asked) dispatch(c)
     else if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore()
       mainWindow.focus()
@@ -366,7 +387,7 @@ else
 
 
 if (isKeyExport()) runKeyExport()
-else if (!secondary) app.whenReady().then(() => {
+else if (!secondary && !printOnly) app.whenReady().then(() => {
   // Packaged builds take the icon from build/icon.icns; in dev, set the Dock icon.
   if (process.platform === 'darwin' && !app.isPackaged) app.dock?.setIcon(path.join(app.getAppPath(), 'build', 'icon.png'))
   if (migratedKeys) importKeys(migratedKeys)
@@ -382,29 +403,50 @@ else if (!secondary) app.whenReady().then(() => {
   if (process.platform === 'darwin' && windowPrefs().secureKeyboard) app.setSecureKeyboardEntryEnabled(true)
   buildMenu()
   createWindow()
-  argvDirs(process.argv).filter((d) => d !== app.getAppPath()).forEach(openDir)
-  if (argvAction(process.argv) === 'settings') mainWindow.webContents.once('did-finish-load', () => send('menu:action', 'settings'))
+  dispatch(cli)
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
 
+// stdout carries only the URL (or one JSON line), so `URL=$(117terminal serve)` works;
+// everything for people goes to stderr. The URL is also written to web.json in the app's
+// data folder, because a Windows GUI app has no console to print to.
 async function startServe() {
   app.dock?.hide()
-  const port = Number(flag('port')) || 7117
-  const host = typeof flag('host') === 'string' ? flag('host') : '127.0.0.1'
-  const token = typeof flag('token') === 'string' ? flag('token') : undefined
+  const port = cli.port ?? 7117
+  const host = cli.flags.host || '127.0.0.1'
+  let token
+  try {
+    token = resolveToken(cli)
+  } catch (err) {
+    console.error(`117terminal: ${err.message}`)
+    return app.exit(EXIT.ERROR)
+  }
   try {
     const { url } = await startWebServer({ root: path.join(__dirname, '../renderer'), port, host, token })
-    console.log(`\n  117Terminal web is running.\n\n  Open: ${url}\n`)
-    if (host !== '127.0.0.1' && host !== 'localhost') {
-      console.log('  Listening on the network: anyone with this URL gets a shell on this machine. Keep the token secret.\n')
+    const info = path.join(app.getPath('userData'), 'web.json')
+    fs.writeFileSync(info, JSON.stringify({ url, port, host, pid: process.pid }), { mode: 0o600 })
+    const cleanup = () => fs.rmSync(info, { force: true })
+    app.on('will-quit', cleanup)
+    for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => app.quit())
+
+    process.stdout.write(cli.flags.json ? `${JSON.stringify({ url, port, host })}\n` : `${url}\n`)
+    if (process.stderr.isTTY) {
+      process.stderr.write('\n  117Terminal web is running. Open the URL above (it carries the access token).\n')
+      if (host !== '127.0.0.1' && host !== 'localhost') {
+        process.stderr.write('  Listening on the network: anyone with this URL gets a shell on this machine. Keep the token secret.\n')
+      }
+      process.stderr.write('  Stop with Ctrl+C.\n\n')
     }
-    console.log('  Stop with Ctrl+C.\n')
-    if (flag('open')) electronShell.openExternal(url)
+    if (cli.flags.open) electronShell.openExternal(url)
   } catch (err) {
-    console.error(`117Terminal web could not start: ${err.message}`)
-    app.exit(1)
+    if (err.code === 'EADDRINUSE') {
+      console.error(`117terminal: port ${port} is already in use (try --port ${port + 1})`)
+      return app.exit(EXIT.PORT_IN_USE)
+    }
+    console.error(`117terminal: web mode could not start: ${err.message}`)
+    app.exit(EXIT.ERROR)
   }
 }
 

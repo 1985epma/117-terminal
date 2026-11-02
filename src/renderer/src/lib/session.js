@@ -16,6 +16,7 @@ const HELP_TEXT = `**Slash commands**
 - \`/voice\` — voice settings · **⌘⇧Space** talk and it types the command (EN · PT · ES)
 - \`/music\` — Spotify & Apple Music · \`/music next\`, \`/music <song>\`
 - \`/settings\` — every setting in one place (also **⌘,**)
+- \`/help <command>\` — details and examples · short forms: \`/a\` agent, \`/s\` settings, \`/m\` music, \`/v\` voice, \`/t\` theme
 - \`/clear\` — clear all blocks
 
 **Shortcuts**
@@ -253,11 +254,11 @@ export class Session {
   }
 
   // Local help card rendered as an agent turn (no AI call).
-  showHelp() {
+  showHelp(text = HELP_TEXT) {
     const turn = new AgentTurn({ prompt: '/help' })
     turn.provider = null
     turn.status = 'done'
-    turn.text = HELP_TEXT
+    turn.text = text
     this.add(turn)
   }
 

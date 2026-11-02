@@ -148,6 +148,16 @@ jobs:
           path: release
           merge-multiple: true
 
+      # The Linux installer ships with each release, so its checksum is in SHA256SUMS.txt too.
+      - uses: actions/checkout@v4
+        with:
+          path: src
+          sparse-checkout: install.sh
+          sparse-checkout-cone-mode: false
+
+      - name: Add install.sh
+        run: install -m 0755 src/install.sh release/install.sh
+
       - name: Write SHA256SUMS.txt
         working-directory: release
         run: |
@@ -183,10 +193,11 @@ jobs:
           - **winget** (Windows): \`winget install 1985epma.117Terminal\` once the package is approved in winget-pkgs.
           - **macOS**: open the DMG and drag 117Terminal to Applications. The app is ad-hoc signed (not notarized), so clear the quarantine flag once: \`xattr -dr com.apple.quarantine /Applications/117Terminal.app\`. The brewcat tab needs [Homebrew](https://brew.sh) (\`brew\` on your PATH).
           - **Windows**: run the MSI. It is unsigned, so SmartScreen may warn: choose *More info* then *Run anyway*.
+          - **Linux, one line** (installs the needed libraries first, checks SHA-256): \`curl -fsSL https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION}/install.sh | bash\`. Or download \`install.sh\`, check it with \`sha256sum -c SHA256SUMS.txt --ignore-missing\`, read it, and run \`bash install.sh\`.
           - **Debian/Ubuntu**: \`sudo apt install ./117Terminal-${VERSION}-linux-amd64.deb\`, then launch \`117terminal\`.
           - **Fedora/RHEL/openSUSE**: \`sudo dnf install ./117Terminal-${VERSION}-linux-x86_64.rpm\` (or \`sudo zypper install\`), then launch \`117terminal\`.
           - **Web mode** (HarmonyOS, tablets, any browser): run \`117terminal --serve\` and open the printed URL. See the README.
-          - **Other Linux**: \`tar xzf 117Terminal-${VERSION}-linux-x64.tar.gz\` and run \`./117Terminal-${VERSION}-linux-x64/117terminal\`. If it aborts with a sandbox error (Ubuntu 24.04+ restricts user namespaces), prefer the .deb, which installs an AppArmor profile.
+          - **Other Linux**: \`tar xzf 117Terminal-${VERSION}-linux-x64.tar.gz\` and run \`./117Terminal-${VERSION}-linux-x64/117terminal\`. If it aborts with a sandbox error (Ubuntu 24.04+ restricts user namespaces), add \`--no-sandbox\` or prefer the .deb, whose chrome-sandbox helper is setuid root.
           EOF
 
           gh release create "$GITHUB_REF_NAME" release/* \

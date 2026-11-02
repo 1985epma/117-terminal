@@ -86,6 +86,10 @@ export function startWebServer({ root, port = 7117, host = '127.0.0.1', token })
     }
   })
 
+  // ws re-emits the HTTP server's errors (e.g. EADDRINUSE); the listen() promise below
+  // reports them, so keep this one from becoming an uncaught exception.
+  wss.on('error', () => {})
+
   wss.on('connection', (ws) => {
     const owner = `web:${crypto.randomUUID()}`
     const event = { owner, sender: { id: owner } }

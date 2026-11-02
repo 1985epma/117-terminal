@@ -37,3 +37,20 @@ jobs:
 
       - name: Build (electron-vite)
         run: npm run build
+
+      - name: CLI tests
+        run: node --test test/
+
+  shellcheck:
+    name: ShellCheck (install.sh)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: ShellCheck
+        run: shellcheck install.sh
+      - name: Help and usage errors
+        run: |
+          bash install.sh --help | grep -q 'Usage:'
+          set +e; bash install.sh --bogus 2>/dev/null; code=$?; set -e
+          test "$code" -eq 2

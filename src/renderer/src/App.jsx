@@ -208,6 +208,16 @@ export default function App() {
         setActiveId(s.id)
         return
       }
+      if (id.startsWith('runCmd:')) {
+        // `117terminal run "<command>"`: a new tab in the caller's folder, running it.
+        const { cwd, command } = JSON.parse(id.slice('runCmd:'.length))
+        const s = new Session({ cwd })
+        setSessions((prev) => [...prev, s])
+        setActiveId(s.id)
+        s.mode = 'shell'
+        s.run(command)
+        return
+      }
       const a = actions.find((x) => x.id === id)
       if (!a) return
       a.run()

@@ -32,7 +32,49 @@ const SLASH = [
   { name: 'clear', desc: 'Clear all blocks' },
   { name: 'help', desc: 'Show what 117Terminal can do' }
 ]
-const SLASH_RE = new RegExp(`^/(${SLASH.map((c) => c.name).join('|')})(?:\\s+([\\s\\S]*))?$`)
+// Short forms: /s → /settings, /a → /agent …
+const ALIASES = { a: 'agent', s: 'settings', m: 'music', v: 'voice', t: 'theme', h: 'help', '?': 'help' }
+const EXAMPLES = {
+  agent: ['/agent', '/agent why is npm test failing?'],
+  new: ['/new summarize the git log of this week'],
+  music: ['/music', '/music next', '/music pause', '/music daft punk'],
+  spotify: ['/spotify', '/spotify https://open.spotify.com/track/…'],
+  applemusic: ['/applemusic', '/applemusic bohemian rhapsody'],
+  help: ['/help', '/help music']
+}
+const escapeRe = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const SLASH_RE = new RegExp(
+  `^/(${[...SLASH.map((c) => c.name), ...Object.keys(ALIASES)].map(escapeRe).join('|')})(?:\\s+([\\s\\S]*))?$`
+)
+
+function distance(a, b) {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)])
+  for (let j = 1; j <= b.length; j++) d[0][j] = j
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
+    }
+  }
+  return d[a.length][b.length]
+}
+const closestSlash = (word) => {
+  const best = SLASH.map((c) => [c.name, distance(word, c.name)]).sort((x, y) => x[1] - y[1])[0]
+  return best[1] <= 2 ? best[0] : null
+}
+
+// Text for `/help <command>`.
+function commandHelp(word) {
+  const c = SLASH.find((x) => x.name === (ALIASES[word] || word))
+  if (!c) {
+    const hint = closestSlash(word)
+    return `No command **/${word}**.${hint ? ` Did you mean **/${hint}**?` : ''} Type \`/help\` for the list.`
+  }
+  const alias = Object.entries(ALIASES).filter(([, n]) => n === c.name).map(([k]) => `\`/${k}\``)
+  const lines = [`**/${c.name}${c.arg ? ` ${c.arg}` : ''}** — ${c.desc}`]
+  if (alias.length) lines.push('', `Short form: ${alias.join(', ')}`)
+  if (EXAMPLES[c.name]) lines.push('', 'Examples:', '', ...EXAMPLES[c.name].map((e) => `- \`${e}\``))
+  return lines.join('\n')
+}
 
 function commonPrefix(items) {
   if (!items.length) return ''
@@ -54,9 +96,14 @@ export default function InputEditor({ session, running, onSubmit, onOpenHistory,
   const provider = cfg.providers.find((p) => p.id === cfg.active)
   const [slashIndex, setSlashIndex] = useState(0)
   const [slashDismissed, setSlashDismissed] = useState(false)
+  const typedSlash = value.slice(1).toLowerCase()
   const slashItems =
-    !running && !slashDismissed && /^\/\w*$/.test(value)
-      ? SLASH.filter((c) => c.name.startsWith(value.slice(1).toLowerCase()))
+    !running && !slashDismissed && /^\/[\w?]*$/.test(value)
+      ? [
+          // A short form (/s, /a…) puts its command first, so Enter runs it.
+          ...SLASH.filter((c) => c.name === ALIASES[typedSlash]),
+          ...SLASH.filter((c) => c.name.startsWith(typedSlash) && c.name !== ALIASES[typedSlash])
+        ]
       : []
   const isSlash = SLASH_RE.test(value.trim())
 
@@ -136,7 +183,8 @@ export default function InputEditor({ session, running, onSubmit, onOpenHistory,
   const runSlash = (text) => {
     const m = text.trim().match(SLASH_RE)
     if (!m) return false
-    const [, name, rest = ''] = m
+    const [, typed, rest = ''] = m
+    const name = ALIASES[typed] || typed
     const arg = rest.trim()
     update('')
     if (name === 'agent') {
@@ -159,7 +207,7 @@ export default function InputEditor({ session, running, onSubmit, onOpenHistory,
       const section = { plugins: 'shell', prompt: 'prompt', mcp: 'mcp', brewcat: 'integrations' }[name]
       window.dispatchEvent(new CustomEvent('eterm-action', { detail: `settings:${section}` }))
     }
-    else if (name === 'help') session.showHelp()
+    else if (name === 'help') session.showHelp(arg ? commandHelp(arg.replace(/^\//, '')) : undefined)
     return true
   }
 
@@ -204,6 +252,17 @@ export default function InputEditor({ session, running, onSubmit, onOpenHistory,
       return
     }
     if (!value.trim()) return
+    // `/word` that is not a command: run it only if it is a real path (like /usr/bin/env).
+    const word = value.trim().match(/^\/([A-Za-z][\w-]*)(?:\s|$)/)?.[1]
+    if (word) {
+      const text = value
+      update('')
+      window.eterm.complete.path(session.cwd, `/${word}`).then((items) => {
+        if (items.some((i) => i.label === word)) return onSubmit(text)
+        session.showHelp(commandHelp(word))
+      })
+      return
+    }
     onSubmit(value)
     update('')
   }

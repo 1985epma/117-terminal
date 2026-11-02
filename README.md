@@ -193,7 +193,35 @@ That's how it runs on **HarmonyOS** (PC, tablet, phone), iPads, Chromebooks or a
 |---|---|
 | macOS (Homebrew cask) | `117terminal --serve`, or `/Applications/117Terminal.app/Contents/MacOS/117Terminal --serve` |
 | Linux (deb / rpm / brew) | `117terminal --serve` (add `--no-sandbox` for the tar.gz) |
-| Windows | `117Terminal.exe --serve` from its install folder (Start menu → 117Terminal → *Open file location*) |
+| Windows | `117Terminal.exe --serve` from its install folder (Start menu → 117Terminal → *Open file location*). A Windows GUI app cannot print to the console, so read the link from `%APPDATA%\117Terminal\web.json` |
+
+The URL is the only thing on **stdout** (messages go to stderr), so scripts can do `URL=$(117terminal --serve)`, or
+`117terminal --serve --json` for `{"url","port","host"}`. Keep a stable link with `--token-file ~/.config/117terminal/token`
+(created `0600` on first use) or the `T117_TOKEN` variable: `--token` works too, but anyone on the machine can read it
+in `ps`. While it runs, the link is also in `web.json` in the app's data folder. Port taken → exit code 3.
+
+### `$ 117terminal --help`
+
+```text
+117terminal [folder...]             open the app (a new tab per folder)
+117terminal run <command>           new tab in this folder, running <command>
+117terminal theme <name>            ninja, midnight, aurora, ember, daylight
+117terminal serve [--port --host --token-file --open --json]
+117terminal doctor [--json]         check libraries, shell, agent and web mode
+117terminal completions bash|zsh|fish
+117terminal --version · --help
+```
+
+From a terminal, the app opens in the background and gives you the prompt back (like `code .`); `--wait` keeps it
+attached. With the app already open, `117terminal ~/api` or `117terminal run "npm test"` adds a tab to it. A typo gets a
+suggestion (`unknown option: --serv (did you mean --serve?)`). Exit codes: `0` ok · `1` error · `2` wrong usage ·
+`3` port in use. Shell completions:
+
+```bash
+eval "$(117terminal completions bash)"                                   # ~/.bashrc
+117terminal completions zsh > "${fpath[1]}/_117terminal"                 # zsh
+117terminal completions fish > ~/.config/fish/completions/117terminal.fish
+```
 
 **No command line?** Open **Settings › Web & HarmonyOS** (or *Shell › Open in Browser*) in the desktop app and press
 **Start web mode**: it shows the link for this computer and, if you allow other devices, the one for your network.
@@ -263,16 +291,19 @@ Homebrew needs the [tap](https://github.com/1985epma/homebrew-117terminal) trust
 brew tap 1985epma/117terminal && brew trust 1985epma/117terminal
 ```
 
-**Linux, one line** — installs the libraries 117Terminal needs (`libgbm1`, `libasound2`, GTK…) first, then the right
-`.deb`/`.rpm` for your CPU, after checking its SHA-256:
+**Linux** — [`install.sh`](install.sh) installs the libraries 117Terminal needs (`libgbm1`, `libasound2`, GTK…) first,
+then the right `.deb`/`.rpm` for your CPU, after checking its SHA-256. Download it, read it, run it:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/1985epma/117-terminal/main/install.sh | bash
+curl -fsSLO https://raw.githubusercontent.com/1985epma/117-terminal/main/install.sh
+less install.sh
+bash install.sh            # --user (no sudo), --version X.Y.Z, --dry-run, --uninstall, --help
 ```
 
-Debian 12, Ubuntu 22.04/24.04 and Fedora 41 tested. Add `-s -- --user` after `bash` for a no-sudo install in
-`~/.local`, `--version X.Y.Z` for a specific release, or `--dry-run` to see what it would do. Read it first:
-[`install.sh`](install.sh).
+Releases also ship `install.sh` next to the packages, listed in `SHA256SUMS.txt`. If you trust it already, the short form
+is `curl -fsSL https://raw.githubusercontent.com/1985epma/117-terminal/main/install.sh | bash`. Running it again with the
+same version does nothing (`--force` reinstalls). Tested on Debian 12, Ubuntu 22.04/24.04 and Fedora 41, and in CI on
+x86_64 and arm64 after every release.
 
 | system | command |
 |---|---|
