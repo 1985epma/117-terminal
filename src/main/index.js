@@ -9,6 +9,7 @@ import { registerZshIpc } from './zsh-plugins.js'
 import { registerMcpIpc } from './mcp.js'
 import { registerBrewcatIpc } from './brewcat.js'
 import { registerMusicIpc } from './music.js'
+import { registerVoiceIpc } from './voice.js'
 import { shellEnv } from './shellenv.js'
 import { appName, isKeyExport, runKeyExport, migrateBeforeReady } from './migrate.js'
 
@@ -103,6 +104,7 @@ function buildMenu() {
         { label: 'Agent Settings…', accelerator: 'CmdOrCtrl+,', click: cmd('agentSettings') },
         { type: 'separator' },
         { label: 'Extensions: Zsh, Prompt, MCP, brewcat…', accelerator: 'CmdOrCtrl+Shift+X', click: cmd('extensions') },
+        { label: 'Voice Command', accelerator: 'CmdOrCtrl+Shift+Space', click: cmd('voice') },
         { label: 'Music…', accelerator: 'CmdOrCtrl+Alt+M', click: cmd('music') },
         { label: 'Play / Pause Music', accelerator: 'CmdOrCtrl+Alt+P', click: cmd('music:playpause') },
         { label: 'Next Track', accelerator: 'CmdOrCtrl+Alt+Right', click: cmd('music:next') },
@@ -265,6 +267,7 @@ else app.whenReady().then(() => {
   registerMcpIpc()
   registerBrewcatIpc()
   registerMusicIpc()
+  registerVoiceIpc(() => mainWindow)
   registerAiIpc(() => mainWindow)
   buildMenu()
   createWindow()

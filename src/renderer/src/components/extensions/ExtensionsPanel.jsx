@@ -3,13 +3,15 @@ import ZshTab from './ZshTab.jsx'
 import PromptTab from './PromptTab.jsx'
 import McpTab from './McpTab.jsx'
 import BrewcatTab from './BrewcatTab.jsx'
+import VoiceTab from './VoiceTab.jsx'
 import './extensions.css'
 
 const TABS = [
   { id: 'zsh', icon: '⚡', label: 'Zsh plugins', hint: 'Autosuggestions, highlighting, tools' },
   { id: 'prompt', icon: '❯', label: 'Prompt theme', hint: 'Powerlevel10k, Starship, Pure…' },
   { id: 'mcp', icon: '⛁', label: 'MCP servers', hint: 'Tools for the agent' },
-  { id: 'brewcat', icon: '🍺', label: 'brewcat', hint: 'Homebrew catalog & kits' }
+  { id: 'brewcat', icon: '🍺', label: 'brewcat', hint: 'Homebrew catalog & kits' },
+  { id: 'voice', icon: '🎙', label: 'Voice', hint: 'Talk, it types · EN · PT · ES' }
 ]
 
 export default function ExtensionsPanel({ initialTab = 'zsh', onClose, onRunInTerminal, showPrompt, onShowPromptChange }) {
@@ -53,6 +55,7 @@ export default function ExtensionsPanel({ initialTab = 'zsh', onClose, onRunInTe
           )}
           {tab === 'mcp' && <McpTab />}
           {tab === 'brewcat' && <BrewcatTab onRunInTerminal={run} />}
+          {tab === 'voice' && <VoiceTab onRunInTerminal={run} />}
           <button className="settings-close" onClick={onClose} aria-label="Close">
             ×
           </button>

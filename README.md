@@ -66,6 +66,7 @@ It speaks **your** zsh: your `.zshrc`, your aliases, Powerlevel10k, plugins inst
 | **`zsh_mods`** | 25+ plugins and tools behind a switch: autosuggestions, syntax highlighting, fzf-tab, zsh-z, Oh My Zsh git/docker/kubectl, zoxide, atuin, mise… |
 | **`prompt_skins`** | Powerlevel10k (lean, classic, rainbow, pure…), Starship presets, Pure, Spaceship. Your PS1 can render above the editor. |
 | **`brewcat`** | The [brewcat](https://github.com/1985epma/homebrew-brewcat) Homebrew catalog built in: profiles, search, kits, doctor. Installs run as blocks. |
+| **`voice_link`** | `⌘⇧Space` or the 🎙 top-right: talk in **English, Português or Español**, it types the command for you to review (*"listar os arquivos ocultos"* → `ls -d .*`). Gemini, OpenAI, Groq or offline whisper.cpp. |
 | **`audio_deck`** | Spotify and Apple Music in the tab bar: now playing, artwork, seek, volume, shuffle, library search, Spotify links. |
 | **`skins`** | Black Ninja Dark (default), Midnight, Aurora, Ember, Daylight. Window transparency and blur. |
 | **`slash`** | Type `/` for the command menu. |
@@ -156,6 +157,7 @@ from the panel.
 /mcp /brewcat      MCP servers · Homebrew catalog
 /music [cmd|song]  play, pause, next, prev, or search
 /spotify [link]    /applemusic [search]
+/voice             voice: language (EN · PT · ES), engine, mode
 /theme             skins, transparency, blur
 /clear  /stop      clear blocks · stop the agent
 ```
@@ -170,6 +172,7 @@ from the panel.
 | `⌥⌘T` | themes & transparency |
 | `⌘⇧X` | extensions |
 | `⌘,` | AI providers |
+| `⌘⇧Space` | talk → it types (voice) |
 
 <div align="center">
 <img src="docs/screenshots/themes.png" width="880" alt="Theme picker with Black Ninja Dark active, transparency slider and live previews" />

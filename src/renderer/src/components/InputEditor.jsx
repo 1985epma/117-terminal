@@ -19,6 +19,7 @@ const SLASH = [
   { name: 'new', arg: '[prompt]', desc: 'Start a new agent conversation' },
   { name: 'model', desc: 'Connect or switch the AI provider and model' },
   { name: 'stop', desc: 'Stop the agent' },
+  { name: 'voice', desc: 'Voice commands: engine, language (EN · PT · ES), mode' },
   { name: 'theme', desc: 'Pick a color theme and transparency' },
   { name: 'music', arg: '[play|pause|next|prev|search]', desc: 'Spotify & Apple Music player' },
   { name: 'spotify', arg: '[link]', desc: 'Open Spotify controls, or play a Spotify link' },
@@ -151,6 +152,7 @@ export default function InputEditor({ session, running, onSubmit, onOpenHistory,
     else if (name === 'clear') session.clear()
     else if (name === 'music' || name === 'spotify' || name === 'applemusic') runMusic(name, arg)
     else if (name === 'theme') window.dispatchEvent(new CustomEvent('eterm-action', { detail: 'themes' }))
+    else if (name === 'voice') window.dispatchEvent(new CustomEvent('eterm-action', { detail: 'extensions:voice' }))
     else if (['plugins', 'prompt', 'mcp', 'brewcat'].includes(name)) {
       const tab = name === 'plugins' ? 'zsh' : name
       window.dispatchEvent(new CustomEvent('eterm-action', { detail: `extensions:${tab}` }))

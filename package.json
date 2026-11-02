@@ -2,7 +2,7 @@
   "name": "117-terminal",
   "productName": "117Terminal",
   "version": "0.1.1",
-  "description": "117Terminal — a block-based terminal with Agent Mode, zsh extensions, MCP and brewcat. By 117-Labs.",
+  "description": "117Terminal \u2014 a block-based terminal with Agent Mode, zsh extensions, MCP and brewcat. By 117-Labs.",
   "main": "out/main/index.js",
   "author": {
     "name": "Everton Araujo",
@@ -15,10 +15,10 @@
     "start": "electron-vite preview",
     "rebuild": "electron-rebuild -f -w node-pty",
     "postinstall": "electron-rebuild -f -w node-pty && node scripts/brand-dev.mjs",
-    "dist": "electron-vite build && electron-builder",
-    "dist:mac": "electron-vite build && electron-builder --mac",
-    "dist:win": "electron-vite build && electron-builder --win",
-    "dist:linux": "electron-vite build && electron-builder --linux"
+    "dist": "electron-vite build && electron-builder && npm run rebuild",
+    "dist:mac": "electron-vite build && electron-builder --mac && npm run rebuild",
+    "dist:win": "electron-vite build && electron-builder --win && npm run rebuild",
+    "dist:linux": "electron-vite build && electron-builder --linux && npm run rebuild"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",
@@ -74,7 +74,10 @@
             "x64"
           ]
         }
-      ]
+      ],
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "117Terminal uses the microphone for voice commands. Audio is sent only to the speech engine you choose."
+      }
     },
     "dmg": {
       "title": "117Terminal ${version}"

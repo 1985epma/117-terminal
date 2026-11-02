@@ -138,7 +138,7 @@ function decrypt(stored) {
   }
 }
 
-function resolve(id) {
+export function resolve(id) {
   const def = PROVIDERS[id]
   if (!def) throw new Error(`Unknown provider: ${id}`)
   const saved = loadConfig().providers[id] || {}
@@ -191,7 +191,7 @@ function publicConfig() {
 
 // ---- model listing ----------------------------------------------------------
 
-function openaiHeaders(p) {
+export function openaiHeaders(p) {
   const h = { 'Content-Type': 'application/json' }
   if (p.apiKey) h.Authorization = `Bearer ${p.apiKey}`
   if (p.id === 'openrouter') {
@@ -437,6 +437,42 @@ async function chatOpenAI(p, { system, messages, tools }, onText, signal) {
   return { content: text, toolCalls }
 }
 
+export const activeProviderId = () => loadConfig().active
+
+// One-shot text completion without tools (used by voice → command).
+export async function complete(p, system, user) {
+  if (p.kind === 'anthropic') {
+    const client = new Anthropic({ apiKey: p.apiKey, baseURL: p.baseUrl })
+    const msg = await client.messages.create({
+      model: p.model,
+      max_tokens: 1024,
+      system,
+      messages: [{ role: 'user', content: user }]
+    })
+    if (msg.stop_reason === 'refusal') throw new Error('The model declined this request.')
+    return msg.content
+      .filter((b) => b.type === 'text')
+      .map((b) => b.text)
+      .join('')
+      .trim()
+  }
+  const res = await fetch(`${p.baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: openaiHeaders(p),
+    signal: AbortSignal.timeout(30000),
+    body: JSON.stringify({
+      model: p.model,
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user }
+      ]
+    })
+  })
+  if (!res.ok) throw new Error(`${p.label} (${res.status}): ${apiErrorMessage(await res.text())}`)
+  const body = await res.json()
+  return (body.choices?.[0]?.message?.content || '').trim()
+}
+
 const inflight = new Map()
 
 export function registerAiIpc(getWindow) {
@@ -507,7 +543,7 @@ export function registerAiIpc(getWindow) {
 }
 
 // Pulls the human message out of OpenAI/Gemini/xAI style error bodies.
-function apiErrorMessage(text) {
+export function apiErrorMessage(text) {
   let msg = text
   try {
     let body = JSON.parse(text)

@@ -10,6 +10,9 @@ import ThemePicker from './components/ThemePicker.jsx'
 import ExtensionsPanel from './components/extensions/ExtensionsPanel.jsx'
 import MusicPanel from './components/music/MusicPanel.jsx'
 import { music } from './lib/music.js'
+import { voice } from './lib/voice.js'
+import { aiConfig } from './lib/aiConfig.js'
+import VoiceHUD from './components/voice/VoiceHUD.jsx'
 
 const DEFAULT_FONT = 13
 
@@ -60,6 +63,40 @@ export default function App() {
     active.mode = 'shell'
     active.runAndWait(cmd).catch(() => {})
     focusInput()
+  }
+
+  // Voice: speech → (smart) shell command or agent prompt, typed into the editor for review.
+  const activeRef = useRef(active)
+  activeRef.current = active
+  const handleVoiceText = async (text) => {
+    const s = activeRef.current
+    const view = views.current.get(s.id)
+    const put = (v) => {
+      view?.setInput(v)
+      view?.focus()
+    }
+    const { mode } = voice.settings()
+    // Agent mode, a running program, or plain dictation: type what was said.
+    if (s.mode === 'agent' || s.current || mode === 'dictate') return put(text)
+    if (!aiConfig.isReady()) {
+      voice.showHint('Typed as dictated. Connect an AI provider (⌘,) to turn speech into commands.')
+      return put(text)
+    }
+    voice.setPhase('thinking')
+    const r = await window.eterm.voice.toCommand(text, { shell: s.shellName, cwd: s.cwd })
+    voice.setPhase('idle')
+    if (!r.ok) {
+      voice.setPhase('error', r.error)
+      return put(text)
+    }
+    if (r.command === 'AGENT') {
+      s.mode = 'agent'
+      s._emit()
+      voice.showHint(`🗣 “${text}” → needs several steps, sent to Agent Mode (↵ to ask)`)
+      return put(text)
+    }
+    voice.showHint(`🗣 “${text}” → ${r.command}`)
+    put(r.command)
   }
 
   // Controls whichever player is active (Spotify if nothing is).
@@ -127,6 +164,8 @@ export default function App() {
       { id: 'agentSettings', label: 'Agent Settings: Connect AI Providers', hint: '⌘,', run: () => setOverlay('agent') },
       { id: 'interrupt', label: 'Interrupt Running Command', hint: '⌃C', run: () => active.interrupt() },
       { id: 'themes', label: 'Themes & Transparency…', hint: '⌥⌘T', run: () => setOverlay('themes') },
+      { id: 'voice', label: 'Voice Command (talk, it types)', hint: '⌘⇧Space', run: () => voice.toggle(handleVoiceText) },
+      { id: 'extensions:voice', label: 'Voice Settings: engine, language, mode', hint: '/voice', run: () => setOverlay('extensions:voice') },
       { id: 'music', label: 'Music: Spotify & Apple Music…', hint: '⌥⌘M', run: () => setOverlay('music') },
       { id: 'music:playpause', label: 'Music: Play / Pause', hint: '⌥⌘P', run: () => musicCommand('playpause') },
       { id: 'music:next', label: 'Music: Next Track', hint: '⌥⌘→', run: () => musicCommand('next') },
@@ -160,7 +199,7 @@ export default function App() {
       // Slash commands can open any Extensions tab directly (extensions:<tab>).
       if (!a) return (id.startsWith('extensions:') || id.startsWith('music-panel:')) && setOverlay(id.replace('music-panel:', 'music:'))
       a.run()
-      if (!['history', 'agentSettings', 'themes', 'music'].includes(id) && !id.startsWith('extensions')) focusInput()
+      if (!['history', 'agentSettings', 'themes', 'music', 'voice'].includes(id) && !id.startsWith('extensions')) focusInput()
     },
     [actions] // eslint-disable-line react-hooks/exhaustive-deps
   )
@@ -173,6 +212,19 @@ export default function App() {
     const on = (e) => runActionRef.current(e.detail)
     window.addEventListener('eterm-action', on)
     return () => window.removeEventListener('eterm-action', on)
+  }, [])
+
+  // Esc cancels a recording.
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape' && voice.get().phase === 'listening') {
+        e.preventDefault()
+        e.stopPropagation()
+        voice.cancel()
+      }
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   }, [])
 
   // Cmd+1..9 jumps to tab.
@@ -204,7 +256,9 @@ export default function App() {
         onNew={newTab}
         onPalette={() => setOverlay('palette')}
         onMusic={() => setOverlay('music')}
+        onVoice={() => runActionRef.current('voice')}
       />
+      <VoiceHUD onOpenSettings={() => setOverlay('extensions:voice')} />
       <div className="views">
         {sessions.map((s) => (
           <TerminalView

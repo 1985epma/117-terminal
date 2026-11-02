@@ -62,6 +62,14 @@ contextBridge.exposeInMainWorld('eterm', {
     search: (id, query) => ipcRenderer.invoke('music:search', id, query),
     playItem: (id, ref) => ipcRenderer.invoke('music:playItem', id, ref)
   },
+  voice: {
+    status: () => ipcRenderer.invoke('voice:status'),
+    permission: () => ipcRenderer.invoke('voice:permission'),
+    transcribe: (wavBase64, opts) => ipcRenderer.invoke('voice:transcribe', wavBase64, opts),
+    toCommand: (text, ctx) => ipcRenderer.invoke('voice:toCommand', text, ctx),
+    downloadModel: (key) => ipcRenderer.invoke('voice:downloadModel', key),
+    onProgress: listen('voice:progress')
+  },
   window: {
     prefs: () => ipcRenderer.invoke('window:prefs'),
     blur: (on) => ipcRenderer.invoke('window:blur', on)

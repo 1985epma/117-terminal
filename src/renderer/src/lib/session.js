@@ -13,6 +13,7 @@ const HELP_TEXT = `**Slash commands**
 - \`/theme\` — pick a color theme, transparency
 - \`/plugins\` — zsh plugins · \`/prompt\` — Powerlevel10k, Starship…
 - \`/mcp\` — MCP servers for the agent · \`/brewcat\` — Homebrew catalog
+- \`/voice\` — voice settings · **⌘⇧Space** talk and it types the command (EN · PT · ES)
 - \`/music\` — Spotify & Apple Music · \`/music next\`, \`/music <song>\`
 - \`/clear\` — clear all blocks
 

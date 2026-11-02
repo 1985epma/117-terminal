@@ -2,6 +2,17 @@
 
 All notable changes to 117Terminal. Versions follow [SemVer](https://semver.org); dates are UTC.
 
+## [Unreleased]
+
+### Added
+- **Voice commands** (`⌘⇧Space` or the 🎙 button at the top right) in English (US), Brazilian Portuguese and Spanish,
+  or auto-detect. In the shell, speech becomes a command typed into the editor for review; in Agent Mode it becomes
+  the prompt. Engines: Gemini, OpenAI, Groq or offline whisper.cpp. Settings in `/voice`.
+
+### Fixed
+- Local `npm run dist*` left node-pty built for the last packaged arch (x64 on Apple Silicon), which broke the dev app's
+  shell; the scripts now rebuild it for the host afterwards.
+
 ## [0.1.1] — 2026-11-02
 
 First public release.

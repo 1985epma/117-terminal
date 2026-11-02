@@ -1,7 +1,8 @@
 import NowPlaying from './music/NowPlaying.jsx'
 import { BrandMark, Wordmark } from './Logo.jsx'
+import MicButton from './voice/MicButton.jsx'
 
-export default function TabBar({ sessions, activeId, onSelect, onClose, onNew, onPalette, onMusic }) {
+export default function TabBar({ sessions, activeId, onSelect, onClose, onNew, onPalette, onMusic, onVoice }) {
   return (
     <div className="tabbar">
       <div className="tabs">
@@ -36,6 +37,7 @@ export default function TabBar({ sessions, activeId, onSelect, onClose, onNew, o
         </button>
       </div>
       <div className="tabbar-right">
+        <MicButton onToggle={onVoice} />
         <NowPlaying onOpen={onMusic} />
         <button className="palette-btn" onClick={onPalette} title="Command palette (⌘P)">
           <span>⌘P</span> Commands
