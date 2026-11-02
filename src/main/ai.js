@@ -101,8 +101,21 @@ export const PROVIDERS = {
   }
 }
 
-// Models that accept server-side refusal fallbacks ("default" routing).
-const FALLBACK_MODELS = new Set(['claude-fable-5-1', 'claude-opus-5-5', 'claude-opus-5', 'claude-sonnet-5-5'])
+// Models that accept server-side refusal fallbacks ("default" routing, beta
+// server-side-fallback-2026-07-01; the array form uses -2026-06-01 instead).
+// Not Claude Haiku 5.5, which has no server-side fallback.
+const FALLBACK_MODELS = new Set(['claude-fable-5-1', 'claude-fable-5', 'claude-opus-5-5', 'claude-opus-5', 'claude-sonnet-5-5'])
+
+// Adaptive thinking: Opus/Sonnet 4.6+, Haiku 5+, and every Fable/Mythos model.
+function supportsAdaptiveThinking(model) {
+  const m = /^claude-(opus|sonnet|haiku|fable|mythos)-(\d+)(?:-(\d{1,2}))?(?!\d)/.exec(model || '')
+  if (!m) return false
+  const [, family, major, minor = '0'] = m
+  const v = Number(major) + Number(minor) / 10
+  if (family === 'fable' || family === 'mythos') return true
+  if (family === 'haiku') return v >= 5
+  return v >= 4.6
+}
 
 // ---- config persistence ---------------------------------------------------
 
@@ -120,6 +133,7 @@ function loadConfig() {
   config.active ||= null
   config.autoRunSafe ??= false
   config.keyStore ||= 'file' // 'file' | 'keychain'
+  config.maxTaskTokens ??= 0 // 0 = no limit
   return config
 }
 
@@ -217,6 +231,7 @@ function publicConfig() {
     active: c.active,
     autoRunSafe: c.autoRunSafe,
     keyStore: c.keyStore,
+    maxTaskTokens: c.maxTaskTokens,
     providers: Object.keys(PROVIDERS).map((id) => {
       const def = PROVIDERS[id]
       const saved = c.providers[id] || {}
@@ -361,12 +376,41 @@ function toAnthropicMessages(messages) {
   return out
 }
 
+// Total over every attempt when a server-side fallback ran; top-level usage covers only the last one.
+function anthropicUsage(usage) {
+  const its = usage?.iterations
+  const parts = its?.some((u) => u.type === 'fallback_message')
+    ? its.filter((u) => u.type === 'message' || u.type === 'fallback_message')
+    : [usage || {}]
+  const sum = (k) => parts.reduce((n, u) => n + (u[k] || 0), 0)
+  return {
+    input: sum('input_tokens'),
+    output: sum('output_tokens'),
+    cacheRead: sum('cache_read_input_tokens'),
+    cacheWrite: sum('cache_creation_input_tokens')
+  }
+}
+
+// After a mid-output fallback, blocks before the last `fallback` marker came from the declined
+// attempt: their thinking / tool calls must not run or be echoed back.
+function dropDeclinedBlocks(content) {
+  let cut = -1
+  content.forEach((b, i) => {
+    if (b.type === 'fallback') cut = i
+  })
+  if (cut < 0) return content
+  return content.filter((b, i) => i >= cut || b.type === 'text')
+}
+
 async function chatAnthropic(p, { system, messages, tools }, onText, signal) {
   const client = new Anthropic({ apiKey: p.apiKey, baseURL: p.baseUrl })
   const params = {
     model: p.model,
     max_tokens: 32000,
-    system,
+    // Breakpoint 1: tools + system (rendered first). Breakpoint 2 (top-level, automatic):
+    // the end of the conversation, so each agent step reads the previous step's prefix.
+    system: system ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }] : undefined,
+    cache_control: { type: 'ephemeral' },
     messages: toAnthropicMessages(messages),
     tools: tools.map((t) => ({
       name: t.name,
@@ -375,6 +419,7 @@ async function chatAnthropic(p, { system, messages, tools }, onText, signal) {
       eager_input_streaming: true
     }))
   }
+  if (supportsAdaptiveThinking(p.model)) params.thinking = { type: 'adaptive' }
   if (FALLBACK_MODELS.has(p.model)) {
     params.betas = ['server-side-fallback-2026-07-01']
     params.fallbacks = 'default'
@@ -382,22 +427,25 @@ async function chatAnthropic(p, { system, messages, tools }, onText, signal) {
   const stream = params.betas
     ? client.beta.messages.stream(params, { signal })
     : client.messages.stream(params, { signal })
+  // 'text' fires only for text deltas, never thinking.
   stream.on('text', (delta) => onText(delta))
   const msg = await stream.finalMessage()
+  const usage = anthropicUsage(msg.usage)
+  const content = dropDeclinedBlocks(msg.content)
 
   if (msg.stop_reason === 'refusal') {
     const why = msg.stop_details?.explanation || msg.stop_details?.category || ''
     throw new Error(`The model declined this request${why ? `: ${why}` : '.'}`)
   }
-  const text = msg.content
+  const text = content
     .filter((b) => b.type === 'text')
     .map((b) => b.text)
     .join('')
-  const toolUses = msg.content.filter((b) => b.type === 'tool_use')
+  const toolUses = content.filter((b) => b.type === 'tool_use')
   // A tool call cut off by max_tokens may carry truncated input: don't run it.
   if (msg.stop_reason === 'max_tokens' && toolUses.length) throw new Error('Response was cut off mid tool call.')
   const toolCalls = toolUses.map((b) => ({ id: b.id, name: b.name, args: b.input || {} }))
-  return { content: text, toolCalls, raw: { provider: 'anthropic', content: msg.content } }
+  return { content: text, toolCalls, usage, raw: { provider: 'anthropic', content } }
 }
 
 function toOpenAIMessages(system, messages) {
@@ -424,23 +472,30 @@ function toOpenAIMessages(system, messages) {
 }
 
 async function chatOpenAI(p, { system, messages, tools }, onText, signal) {
-  const res = await fetch(`${p.baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: openaiHeaders(p),
-    signal,
-    body: JSON.stringify({
-      model: p.model,
-      stream: true,
-      messages: toOpenAIMessages(system, messages),
-      tools: tools.map((t) => ({
-        type: 'function',
-        function: { name: t.name, description: t.description, parameters: t.schema }
-      }))
-    })
-  })
+  const body = {
+    model: p.model,
+    stream: true,
+    stream_options: { include_usage: true },
+    messages: toOpenAIMessages(system, messages),
+    tools: tools.map((t) => ({
+      type: 'function',
+      function: { name: t.name, description: t.description, parameters: t.schema }
+    }))
+  }
+  const post = () => fetch(`${p.baseUrl}/chat/completions`, { method: 'POST', headers: openaiHeaders(p), signal, body: JSON.stringify(body) })
+  let res = await post()
+  if (res.status === 400) {
+    const err = await res.text()
+    // Some local servers reject stream_options: retry once without it.
+    if (!/stream_options/i.test(err)) throw new Error(`${p.label} (400): ${apiErrorMessage(err)}`)
+    delete body.stream_options
+    res = await post()
+  }
   if (!res.ok) throw new Error(`${p.label} (${res.status}): ${apiErrorMessage(await res.text())}`)
 
   let text = ''
+  let finish = null
+  let usage = null
   const calls = [] // by index
   const decoder = new TextDecoder()
   let buf = ''
@@ -460,6 +515,8 @@ async function chatOpenAI(p, { system, messages, tools }, onText, signal) {
         continue
       }
       if (evt.error) throw new Error(evt.error.message || JSON.stringify(evt.error))
+      if (evt.usage) usage = evt.usage // final chunk (choices: []) with include_usage
+      if (evt.choices?.[0]?.finish_reason) finish = evt.choices[0].finish_reason
       const delta = evt.choices?.[0]?.delta
       if (!delta) continue
       if (delta.content) {
@@ -491,7 +548,15 @@ async function chatOpenAI(p, { system, messages, tools }, onText, signal) {
     if (c.extra) call.extra = c.extra
     return call
   })
-  return { content: text, toolCalls }
+  // A tool call cut off by the length limit may carry truncated arguments: don't run it.
+  if (finish === 'length' && toolCalls.length) throw new Error('Response was cut off mid tool call.')
+  const prompt = usage?.prompt_tokens || 0
+  const cached = usage?.prompt_tokens_details?.cached_tokens || 0
+  return {
+    content: text,
+    toolCalls,
+    usage: { input: Math.max(0, prompt - cached), output: usage?.completion_tokens || 0, cacheRead: cached, cacheWrite: 0 }
+  }
 }
 
 export const activeProviderId = () => loadConfig().active
@@ -500,12 +565,15 @@ export const activeProviderId = () => loadConfig().active
 export async function complete(p, system, user) {
   if (p.kind === 'anthropic') {
     const client = new Anthropic({ apiKey: p.apiKey, baseURL: p.baseUrl })
-    const msg = await client.messages.create({
-      model: p.model,
-      max_tokens: 1024,
-      system,
-      messages: [{ role: 'user', content: user }]
-    })
+    const msg = await client.messages.create(
+      {
+        model: p.model,
+        max_tokens: 1024,
+        system,
+        messages: [{ role: 'user', content: user }]
+      },
+      { timeout: 30000 }
+    )
     if (msg.stop_reason === 'refusal') throw new Error('The model declined this request.')
     return msg.content
       .filter((b) => b.type === 'text')
@@ -557,6 +625,10 @@ export function registerAiIpc(getWindow) {
     if (opts.active !== undefined) c.active = opts.active
     if (opts.autoRunSafe !== undefined) c.autoRunSafe = !!opts.autoRunSafe
     if (opts.keyStore === 'file' || opts.keyStore === 'keychain') c.keyStore = opts.keyStore
+    if (opts.maxTaskTokens !== undefined) {
+      const n = Number(opts.maxTaskTokens)
+      if (Number.isFinite(n) && n >= 0) c.maxTaskTokens = Math.floor(n)
+    }
     saveConfig()
     return publicConfig()
   })

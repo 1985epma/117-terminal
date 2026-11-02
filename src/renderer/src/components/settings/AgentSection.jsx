@@ -1,5 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
-import { aiConfig } from '../../lib/aiConfig.js'
+import { aiConfig, dataDestination } from '../../lib/aiConfig.js'
 
 const HINTS = {
   anthropic: 'Claude Opus 5.5 is the default. Paste a key from the Anthropic Console.',
@@ -70,7 +70,10 @@ function ProviderForm({ p, isActive }) {
         <h2>{p.label}</h2>
         {isActive ? <span className="pill pill-on">● Active</span> : null}
       </div>
-      <p className="pf-hint">{HINTS[p.id]}</p>
+      <p className="pf-hint">
+        {HINTS[p.id]}
+        <span className="pf-where">{dataDestination(p)}</span>
+      </p>
 
       {p.needsKey && (
         <label className="field">
@@ -155,6 +158,34 @@ function ProviderForm({ p, isActive }) {
   )
 }
 
+// Token budget per agent task; 0 = no limit. Saved on blur / Enter.
+function TokenLimitField({ value }) {
+  const [draft, setDraft] = useState(String(value || 0))
+  useEffect(() => setDraft(String(value || 0)), [value])
+
+  const save = async () => {
+    const n = Math.max(0, Math.floor(Number(draft) || 0))
+    setDraft(String(n))
+    if (n !== (value || 0)) aiConfig.set(await window.eterm.ai.options({ maxTaskTokens: n }))
+  }
+
+  return (
+    <label className="token-limit">
+      <span>Token limit per task</span>
+      <input
+        type="number"
+        min={0}
+        step={10000}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+      />
+      <small>Stops the agent when one task uses this many tokens. 0 = no limit.</small>
+    </label>
+  )
+}
+
 export default function AgentSection() {
   const cfg = useSyncExternalStore(aiConfig.subscribe, aiConfig.get)
   const [selected, setSelected] = useState(() => cfg.active || 'anthropic')
@@ -175,8 +206,12 @@ export default function AgentSection() {
             checked={cfg.autoRunSafe}
             onChange={async (e) => aiConfig.set(await window.eterm.ai.options({ autoRunSafe: e.target.checked }))}
           />
-          <span>Auto-run read-only commands (ls, cat, git status…)</span>
+          <span>
+            Auto-run read-only commands (ls, cat, git status…)
+            <small className="toggle-hint">Read-only commands that touch secrets (~/.ssh, .env, …) always ask.</small>
+          </span>
         </label>
+        <TokenLimitField value={cfg.maxTaskTokens} />
         {window.eterm.platform === 'darwin' && (
           <label className="toggle toggle-plain">
             <input

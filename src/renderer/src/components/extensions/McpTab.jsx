@@ -38,6 +38,22 @@ const defOf = (s) => ({
   trusted: s.trusted
 })
 
+// Text in a tool description that talks to the model rather than describing the
+// tool is a sign of tool poisoning. Warning only; nothing is blocked.
+const SUSPICIOUS = [
+  /ignore (all |any )?(previous|prior|above)/i,
+  /<\s*important\s*>/i,
+  /do not (tell|inform|mention|show)( this to)? the user/i,
+  /don'?t (tell|inform|mention|show)( this to)? the user/i,
+  /system prompt/i
+]
+function suspicion(desc) {
+  const d = desc || ''
+  if (d.length > 1000) return `Unusually long description (${d.length} characters).`
+  const hit = SUSPICIOUS.map((re) => d.match(re)).find(Boolean)
+  return hit ? `Contains text aimed at the AI model: “${hit[0]}”.` : ''
+}
+
 const STATUS_TEXT = { connected: 'Connected', connecting: 'Connecting…', error: 'Error', idle: 'Not connected' }
 
 // Add / edit form for a custom server.
@@ -147,11 +163,14 @@ function ServerForm({ initial, onSubmit, onCancel, takenNames }) {
   )
 }
 
-function ServerCard({ s, busy, result, onTest, onSave, onRemove, onEdit }) {
+function ServerCard({ s, busy, result, onTest, onSave, onRemove, onEdit, onAccept }) {
   const [open, setOpen] = useState(false)
   const [confirm, setConfirm] = useState(false)
   const status = s.disabled ? 'disabled' : s.status
   const tools = s.tools || []
+  const flagged = tools.filter((t) => suspicion(t.description)).length
+  // Show the tools when they changed, so there is something to review.
+  const showTools = (open || s.toolsChanged) && tools.length > 0
   return (
     <div className={`ext-server ${s.disabled ? 'off' : ''}`}>
       <div className="ext-server-head">
@@ -159,6 +178,16 @@ function ServerCard({ s, busy, result, onTest, onSave, onRemove, onEdit }) {
         <span className="ext-name">{s.name}</span>
         <span className="ext-tag">{s.url ? s.type || 'http' : 'stdio'}</span>
         {s.trusted && <span className="ext-tag ok">trusted</span>}
+        {s.toolsChanged && (
+          <span className="ext-tag" style={{ color: 'var(--warn)' }}>
+            tools changed
+          </span>
+        )}
+        {flagged > 0 && (
+          <span className="ext-tag" style={{ color: 'var(--warn)' }} title="Some tool descriptions look suspicious">
+            ⚠ {flagged} suspicious
+          </span>
+        )}
         <span className="ext-server-status">
           {busy === 'test' ? (
             <>
@@ -180,14 +209,28 @@ function ServerCard({ s, busy, result, onTest, onSave, onRemove, onEdit }) {
       </div>
       {s.status === 'error' && s.error && !s.disabled && <div className="ext-err">{s.error}</div>}
       {result && <div className={`pf-status ${result.ok ? 'ok' : 'bad'}`}>{result.text}</div>}
-      {open && tools.length > 0 && (
-        <ul className="ext-tools">
-          {tools.map((t) => (
-            <li key={t.name}>
-              <code>{t.name}</code>
-              {t.description && <span>{t.description}</span>}
-            </li>
-          ))}
+      {s.toolsChanged && !s.disabled && (
+        <div className="pf-status bad">
+          This server’s tools changed since you reviewed them. It needs approval for every call until you accept.{' '}
+          <button className="ext-btn small" onClick={onAccept} disabled={!!busy}>
+            {busy === 'accept' ? 'Accepting…' : 'Accept changes'}
+          </button>
+        </div>
+      )}
+      {showTools && (
+        <ul className="ext-tools" style={{ maxHeight: 400 }}>
+          {tools.map((t) => {
+            const warn = suspicion(t.description)
+            return (
+              <li key={t.name} style={{ flexDirection: 'column', gap: 2, padding: '5px 0' }}>
+                <code>{t.name}</code>
+                {t.description && (
+                  <span style={{ whiteSpace: 'pre-wrap', overflow: 'visible', wordBreak: 'break-word' }}>{t.description}</span>
+                )}
+                {warn && <span style={{ color: 'var(--warn)', whiteSpace: 'normal' }}>⚠ {warn}</span>}
+              </li>
+            )
+          })}
         </ul>
       )}
       <div className="ext-server-actions">
@@ -321,6 +364,17 @@ export default function McpTab() {
     if (andTest) await test(name)
   }
 
+  const acceptTools = async (s) => {
+    mark(s.name, 'accept')
+    const res = await window.eterm.mcp.acceptTools(s.name, s.toolsHash).catch((e) => ({ ok: false, error: String(e?.message || e) }))
+    if (res?.listing) setListing(res.listing)
+    setResults((r) => ({
+      ...r,
+      [s.name]: res?.ok ? { ok: true, text: 'Tool changes accepted.' } : { ok: false, text: res?.error || 'Could not accept the changes' }
+    }))
+    mark(s.name, '')
+  }
+
   const remove = async (name) => {
     mark(name, 'remove')
     setListing(await window.eterm.mcp.remove(name))
@@ -411,6 +465,7 @@ export default function McpTab() {
                 onSave={(def) => save(s.name, def)}
                 onRemove={() => remove(s.name)}
                 onEdit={() => setEditing(s)}
+                onAccept={() => acceptTools(s)}
               />
             )
           )}

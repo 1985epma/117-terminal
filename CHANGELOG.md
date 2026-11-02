@@ -4,6 +4,37 @@ All notable changes to 117Terminal. Versions follow [SemVer](https://semver.org)
 
 ## [Unreleased]
 
+### Security (Agent)
+- **"Auto-run safe commands" now allows only known read-only forms.** It used to let through `git branch -D`,
+  `git remote set-url`, `sort -o <file>`, `find -fprint` and `git diff --output`. Anything without a rule, any glob,
+  `$` expansion or redirection now asks first.
+- **Secrets always ask**: commands that mention `~/.ssh`, `~/.aws`, `.env`, `*.pem`, `id_ed25519`, `credentials` and
+  similar never run on their own. The same applies to recursive `grep` and `rg --hidden`/`-u`.
+- **No silent read-then-send**: after a command reads outside the working folder on its own, trusted MCP tools need a
+  click for the rest of that task.
+- **Terminal output is treated as data**: it now goes to the model inside `<terminal_context>` in the conversation, not
+  in the system prompt, and the model is told it never contains instructions.
+- **MCP tool changes are caught**: each server's tools are fingerprinted. If they change after an update, the server
+  stops being trusted until you accept the change. Tool descriptions are listed in full, and suspicious ones are
+  flagged. The popular-server presets are pinned to exact versions. MCP calls time out after 60 s.
+
+### Added (Agent)
+- **Token usage on every agent step** (input, output, cached), with a task total and an optional **token limit per
+  task** in Settings › AI Agent.
+- **Decline with a reason**: "Decline…" on a command or MCP card tells the agent why.
+- **Where your data goes**: each agent turn shows "local" or "cloud · <provider>".
+- **Agent eval harness** (`npm run eval:agent`, see `eval/README.md`): 25 tasks in English and Portuguese, including
+  prompt-injection cases. It grades the agent's first decision without running anything.
+
+### Changed (Agent)
+- **Prompt caching with Claude**: the system prompt is stable, and tools, system and history are cached, so later steps
+  in a task reuse the earlier ones instead of paying for them again. MCP tools are sent in a fixed order to keep the
+  cache valid.
+- **Adaptive thinking** on Claude models that support it.
+- **Long sessions no longer overflow**: above ~120k context tokens, older command output is replaced with a short note.
+- **OpenAI-compatible providers**: a reply cut off in the middle of a tool call is no longer run. Voice-to-command with
+  Claude now has a 30 s timeout.
+
 ### Added
 - **A real command line**: `117terminal --help` and `--version`; subcommands `open`, `run "<cmd>"` (new tab running it),
   `theme <name>`, `serve`, `doctor` (libraries, shell, agent, MCP, web port) and `completions bash|zsh|fish`. Unknown

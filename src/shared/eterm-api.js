@@ -41,6 +41,7 @@ export function createApi({ invoke, send, listen, platform }) {
       remove: (name) => invoke('mcp:remove', name),
       test: (name) => invoke('mcp:test', name),
       import: (source) => invoke('mcp:import', source),
+      acceptTools: (name, hash) => invoke('mcp:acceptTools', name, hash),
       call: (name, args) => invoke('mcp:call', name, args)
     },
     brewcat: {
