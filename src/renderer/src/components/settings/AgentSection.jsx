@@ -85,7 +85,7 @@ function ProviderForm({ p, isActive }) {
           <input
             type="password"
             placeholder={
-              p.hasKey ? `${p.keyHint} ${p.keySource === 'env' ? `(from $${p.env})` : '(saved in Keychain)'}` : 'Paste your key'
+              p.hasKey ? `${p.keyHint} ${p.keySource === 'env' ? `(from $${p.env})` : '(saved, encrypted)'}` : 'Paste your key'
             }
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
@@ -177,6 +177,16 @@ export default function AgentSection() {
           />
           <span>Auto-run read-only commands (ls, cat, git status…)</span>
         </label>
+        {window.eterm.platform === 'darwin' && (
+          <label className="toggle toggle-plain">
+            <input
+              type="checkbox"
+              checked={cfg.keyStore === 'keychain'}
+              onChange={async (e) => aiConfig.set(await window.eterm.ai.options({ keyStore: e.target.checked ? 'keychain' : 'file' }))}
+            />
+            <span>Store keys in the macOS Keychain (macOS asks for your password after each update)</span>
+          </label>
+        )}
       </div>
       <div className="agent-form">{p ? <ProviderForm key={p.id} p={p} isActive={cfg.active === p.id} /> : null}</div>
     </div>

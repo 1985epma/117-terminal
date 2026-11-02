@@ -237,3 +237,6 @@
     display: none;
   }
 }
+.toggle-plain {
+  margin-top: 0;
+}

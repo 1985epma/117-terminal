@@ -4,9 +4,14 @@ All notable changes to 117Terminal. Versions follow [SemVer](https://semver.org)
 
 ## [Unreleased]
 
+### Changed
+- **API keys no longer use the macOS Keychain by default**, so macOS stops asking for your password. Keys are encrypted
+  with AES-256-GCM using a random key in the app's data folder (`.keystore`, readable only by your user). Keys already in
+  the Keychain move over the first time each one is used (one last prompt), or paste them again to skip it. Turn the
+  Keychain back on in Settings › AI Agent.
+
 ### Fixed
-- macOS no longer asks for the Keychain password when the app opens. Saved API keys are now read only when a key is
-  actually used (agent, voice, model list), and the provider list shows a stored hint instead of decrypting every key.
+- The app no longer reads saved keys at launch: the provider list shows a stored 4-character hint instead.
 
 ## [0.1.3] — 2026-11-02
 

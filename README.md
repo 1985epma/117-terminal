@@ -103,7 +103,8 @@ Or just **talk to it** — in English, Português or Español — and it types t
 | Ollama · LM Studio | local, no key | pick a model with tool support |
 | OpenRouter · Groq · DeepSeek · Mistral · custom | OpenAI-compatible | any `/v1/chat/completions` server |
 
-> 🔐 **Keys never touch the UI.** They live in the main process, encrypted with the macOS Keychain (`safeStorage`).
+> 🔐 **Keys never touch the UI.** They live in the main process, encrypted at rest (AES-256-GCM with a per-user key
+> file; the macOS Keychain is optional in Settings › AI Agent).
 > Keys in `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `XAI_API_KEY`… are picked up automatically.
 
 Every command the agent wants to run shows up as a card: **`↵` run · `esc` skip · edit before running**. You can let it

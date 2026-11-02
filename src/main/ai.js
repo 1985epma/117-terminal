@@ -3,10 +3,12 @@
 //   - "anthropic": official Anthropic SDK (Claude)
 //   - "openai":    OpenAI-compatible Chat Completions over fetch + SSE
 //                  (OpenAI, Gemini, xAI Grok, Ollama, OpenRouter, Groq, ...)
-// API keys live only in the main process, encrypted with the OS keychain.
+// API keys live only in the main process, encrypted at rest (local key file by default,
+// or the macOS Keychain when the user opts in).
 import { app, safeStorage } from 'electron'
 import { ipcMain } from './ipc.js'
 import fs from 'node:fs'
+import crypto from 'node:crypto'
 import path from 'node:path'
 import Anthropic from '@anthropic-ai/sdk'
 import { agentTools } from './mcp.js'
@@ -117,6 +119,7 @@ function loadConfig() {
   config.providers ||= {}
   config.active ||= null
   config.autoRunSafe ??= false
+  config.keyStore ||= 'file' // 'file' | 'keychain'
   return config
 }
 
@@ -124,18 +127,46 @@ function saveConfig() {
   fs.writeFileSync(configPath(), JSON.stringify(config, null, 2), { mode: 0o600 })
 }
 
+// Keys are encrypted with AES-256-GCM using a random key in userData/.keystore (mode 0600),
+// so the app never touches the macOS Keychain unless the user turns it on in Settings.
 // `hint` (last 4 characters) is kept beside the ciphertext so listing providers never
-// touches the Keychain: macOS only asks for it when a key is actually used.
+// decrypts anything.
+const keyFilePath = () => path.join(app.getPath('userData'), '.keystore')
+let fileKey = null
+function localKey() {
+  if (fileKey) return fileKey
+  try {
+    fileKey = Buffer.from(fs.readFileSync(keyFilePath(), 'utf8').trim(), 'base64')
+    if (fileKey.length === 32) return fileKey
+  } catch {
+    /* create it below */
+  }
+  fileKey = crypto.randomBytes(32)
+  fs.writeFileSync(keyFilePath(), fileKey.toString('base64'), { mode: 0o600 })
+  return fileKey
+}
+
 function encrypt(text) {
   const hint = text.slice(-4)
-  if (safeStorage.isEncryptionAvailable()) return { enc: safeStorage.encryptString(text).toString('base64'), hint }
-  return { plain: text, hint }
+  if (loadConfig().keyStore === 'keychain' && safeStorage.isEncryptionAvailable()) {
+    return { enc: safeStorage.encryptString(text).toString('base64'), hint }
+  }
+  const iv = crypto.randomBytes(12)
+  const cipher = crypto.createCipheriv('aes-256-gcm', localKey(), iv)
+  const data = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()])
+  return { aes: Buffer.concat([iv, cipher.getAuthTag(), data]).toString('base64'), hint }
 }
 
 function decrypt(stored) {
   if (!stored) return ''
   if (stored.plain) return stored.plain
   try {
+    if (stored.aes) {
+      const buf = Buffer.from(stored.aes, 'base64')
+      const decipher = crypto.createDecipheriv('aes-256-gcm', localKey(), buf.subarray(0, 12))
+      decipher.setAuthTag(buf.subarray(12, 28))
+      return Buffer.concat([decipher.update(buf.subarray(28)), decipher.final()]).toString('utf8')
+    }
     return safeStorage.decryptString(Buffer.from(stored.enc, 'base64'))
   } catch {
     return ''
@@ -153,9 +184,10 @@ export function resolve(id) {
   if (!def) throw new Error(`Unknown provider: ${id}`)
   const saved = loadConfig().providers[id] || {}
   const savedKey = decrypt(saved.key)
-  // Keys saved before hints existed get one the first time they are used.
-  if (savedKey && !saved.key.hint) {
-    saved.key.hint = savedKey.slice(-4)
+  // A key from the other store (e.g. Keychain, before it was turned off) moves over on first use.
+  const wanted = loadConfig().keyStore === 'keychain' ? 'enc' : 'aes'
+  if (savedKey && (!saved.key[wanted] || !saved.key.hint)) {
+    saved.key = encrypt(savedKey)
     saveConfig()
   }
   const envKey = def.env ? process.env[def.env] || '' : ''
@@ -184,6 +216,7 @@ function publicConfig() {
   return {
     active: c.active,
     autoRunSafe: c.autoRunSafe,
+    keyStore: c.keyStore,
     providers: Object.keys(PROVIDERS).map((id) => {
       const def = PROVIDERS[id]
       const saved = c.providers[id] || {}
@@ -523,6 +556,7 @@ export function registerAiIpc(getWindow) {
     const c = loadConfig()
     if (opts.active !== undefined) c.active = opts.active
     if (opts.autoRunSafe !== undefined) c.autoRunSafe = !!opts.autoRunSafe
+    if (opts.keyStore === 'file' || opts.keyStore === 'keychain') c.keyStore = opts.keyStore
     saveConfig()
     return publicConfig()
   })
