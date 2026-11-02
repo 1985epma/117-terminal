@@ -54,6 +54,7 @@
       "output": "dist",
       "buildResources": "build"
     },
+    "afterPack": "scripts/after-pack.cjs",
     "afterSign": "scripts/adhoc-sign.cjs",
     "publish": null,
     "mac": {
@@ -77,7 +78,18 @@
         }
       ],
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "117Terminal uses the microphone for voice commands. Audio is sent only to the speech engine you choose."
+        "NSMicrophoneUsageDescription": "117Terminal uses the microphone for voice commands. Audio is sent only to the speech engine you choose.",
+        "NSAppleEventsUsageDescription": "117Terminal controls Spotify and Apple Music for the built-in player (play, pause, next track) and searches your Apple Music library only when you ask it to.",
+        "CFBundleDocumentTypes": [
+          {
+            "CFBundleTypeName": "Folder",
+            "CFBundleTypeRole": "Viewer",
+            "LSHandlerRank": "Alternate",
+            "LSItemContentTypes": [
+              "public.folder"
+            ]
+          }
+        ]
       }
     },
     "dmg": {

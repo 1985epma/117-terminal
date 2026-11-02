@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, shell as electronShell } from 'electron'
+import { app, BrowserWindow, Menu, screen, shell as electronShell } from 'electron'
 import path from 'node:path'
 import os from 'node:os'
 import fs from 'node:fs'
@@ -46,12 +46,61 @@ function windowPrefs() {
   }
 }
 
+function savePrefs(patch) {
+  try {
+    fs.writeFileSync(windowPrefsFile(), JSON.stringify({ ...windowPrefs(), ...patch }))
+  } catch {
+    /* read-only profile */
+  }
+}
+
+// Reopen where it was closed, unless that spot is on a display that is gone now.
+function savedBounds() {
+  const b = windowPrefs().bounds
+  if (!b) return { width: 1180, height: 760 }
+  const visible = screen.getAllDisplays().some(({ workArea: a }) =>
+    b.x < a.x + a.width && b.x + b.width > a.x && b.y < a.y + a.height && b.y + b.height > a.y
+  )
+  return visible ? b : { width: b.width, height: b.height }
+}
+
 let mainWindow = null
+
+// Folders opened from Finder ("Open With", dropped on the Dock icon) or passed as
+// `117terminal <dir>` become new tabs. They wait until the page can take them.
+let rendererReady = false
+const pendingDirs = []
+function openDir(p) {
+  let dir = null
+  try {
+    dir = fs.statSync(p).isDirectory() ? p : path.dirname(p)
+  } catch {
+    return
+  }
+  if (rendererReady && mainWindow) {
+    send('menu:action', `openDir:${dir}`)
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.show()
+    mainWindow.focus()
+  } else {
+    pendingDirs.push(dir)
+    if (app.isReady() && !mainWindow && !serve) createWindow()
+  }
+}
+const argvDirs = (argv, base = process.cwd()) =>
+  argv
+    .slice(app.isPackaged ? 1 : 2)
+    .filter((a) => !a.startsWith('-'))
+    .map((a) => path.resolve(base, a))
+    .filter((a) => fs.existsSync(a))
+app.on('open-file', (e, p) => {
+  e.preventDefault()
+  openDir(p)
+})
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1180,
-    height: 760,
+    ...savedBounds(),
     minWidth: 560,
     minHeight: 360,
     title: '117Terminal',
@@ -89,6 +138,25 @@ function createWindow() {
     if (details.isMainFrame && !details.isSameDocument) killOwner(owner)
   })
 
+  rendererReady = false
+  mainWindow.webContents.on('did-finish-load', () => {
+    rendererReady = true
+    for (const dir of pendingDirs.splice(0)) send('menu:action', `openDir:${dir}`)
+  })
+
+  if (windowPrefs().maximized) mainWindow.maximize()
+  let saveTimer = null
+  const saveBounds = () => {
+    clearTimeout(saveTimer)
+    saveTimer = setTimeout(() => {
+      if (!mainWindow || mainWindow.isDestroyed() || mainWindow.isFullScreen()) return
+      const maximized = mainWindow.isMaximized()
+      savePrefs(maximized ? { maximized } : { maximized, bounds: mainWindow.getBounds() })
+    }, 400)
+  }
+  mainWindow.on('resize', saveBounds)
+  mainWindow.on('move', saveBounds)
+
   const contents = mainWindow.webContents
   const off = addSink((channel, ...args) => {
     if (!contents.isDestroyed()) contents.send(channel, ...args)
@@ -97,6 +165,7 @@ function createWindow() {
     off()
     killOwner(owner)
     mainWindow = null
+    rendererReady = false
   })
 }
 
@@ -117,6 +186,15 @@ function buildMenu() {
               { role: 'about' },
               { type: 'separator' },
               settings,
+              {
+                label: 'Secure Keyboard Entry',
+                type: 'checkbox',
+                checked: !!windowPrefs().secureKeyboard,
+                click: (item) => {
+                  app.setSecureKeyboardEntryEnabled(item.checked)
+                  savePrefs({ secureKeyboard: item.checked })
+                }
+              },
               { type: 'separator' },
               { role: 'services' },
               { type: 'separator' },
@@ -243,13 +321,26 @@ ipcMain.handle('app:open', (_e, url) => {
 ipcMain.handle('window:prefs', () => windowPrefs())
 ipcMain.handle('window:blur', (_e, on) => {
   if (process.platform === 'darwin') mainWindow?.setVibrancy(on ? 'under-window' : null)
-  fs.writeFileSync(windowPrefsFile(), JSON.stringify({ ...windowPrefs(), blur: !!on }))
+  savePrefs({ blur: !!on })
   return windowPrefs()
 })
 
+// One app per user (packaged builds): `117terminal <dir>` while it runs opens a tab there.
+const secondary = app.isPackaged && !serve && !isKeyExport() && !app.requestSingleInstanceLock()
+if (secondary) app.quit()
+else
+  app.on('second-instance', (_e, argv, cwd) => {
+    const dirs = argvDirs(argv, cwd)
+    if (dirs.length) dirs.forEach(openDir)
+    else if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.focus()
+    } else createWindow()
+  })
+
 
 if (isKeyExport()) runKeyExport()
-else app.whenReady().then(() => {
+else if (!secondary) app.whenReady().then(() => {
   // Packaged builds take the icon from build/icon.icns; in dev, set the Dock icon.
   if (process.platform === 'darwin' && !app.isPackaged) app.dock?.setIcon(path.join(app.getAppPath(), 'build', 'icon.png'))
   if (migratedKeys) importKeys(migratedKeys)
@@ -262,8 +353,10 @@ else app.whenReady().then(() => {
   registerVoiceIpc(() => broadcastWindow)
   registerAiIpc(() => broadcastWindow)
   if (serve) return startServe()
+  if (process.platform === 'darwin' && windowPrefs().secureKeyboard) app.setSecureKeyboardEntryEnabled(true)
   buildMenu()
   createWindow()
+  argvDirs(process.argv).filter((d) => d !== app.getAppPath()).forEach(openDir)
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })

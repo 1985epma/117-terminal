@@ -201,6 +201,13 @@ export default function App() {
       if (legacy || id.startsWith('extensions:')) return setOverlay(legacy || id.replace('extensions:', 'settings:'))
       if (id.startsWith('settings:') || id === 'settings') return setOverlay(id === 'settings' ? 'settings:general' : id)
       if (id.startsWith('music-panel:')) return setOverlay(id.replace('music-panel:', 'music:'))
+      if (id.startsWith('openDir:')) {
+        // A folder from Finder, the Dock or `117terminal <dir>`: open it in a new tab.
+        const s = new Session({ cwd: id.slice('openDir:'.length) })
+        setSessions((prev) => [...prev, s])
+        setActiveId(s.id)
+        return
+      }
       const a = actions.find((x) => x.id === id)
       if (!a) return
       a.run()

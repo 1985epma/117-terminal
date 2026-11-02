@@ -4,7 +4,17 @@ All notable changes to 117Terminal. Versions follow [SemVer](https://semver.org)
 
 ## [Unreleased]
 
+### Added
+- **Open folders in 117Terminal**: Finder's *Open With › 117Terminal*, dropping a folder or file on the Dock icon, or
+  `117terminal <dir>` opens a new tab there. With the app already running, `117terminal <dir>` adds a tab to it.
+- The window reopens where you left it, at the same size (or maximized). If that spot is on a display that is gone, it
+  opens centred instead.
+- **Secure Keyboard Entry** (app menu, like Terminal.app): stops other apps from reading your keystrokes while
+  117Terminal is in front. It stays on across restarts.
+
 ### Changed
+- macOS permissions: the Apple Events prompt now says why (controlling Spotify and Apple Music), and the unused camera,
+  Bluetooth and audio-capture permission strings that Electron adds by default are removed.
 - **API keys no longer use the macOS Keychain by default**, so macOS stops asking for your password. Keys are encrypted
   with AES-256-GCM using a random key in the app's data folder (`.keystore`, readable only by your user). Keys already in
   the Keychain move over the first time each one is used (one last prompt), or paste them again to skip it. Turn the
