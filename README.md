@@ -318,7 +318,7 @@ scripts/                     # adhoc-sign.cjs (macOS) · brand-dev.mjs
 
 <img src="build/icon.png" width="64" alt="" />
 
-**117Terminal** · forged by **[117-Labs](https://github.com/1985epma)** · built with Claude
+**117Terminal** · forged by **[117-Labs](https://github.com/1985epma)** · built with 117-labs
 
 Styled after the 117-Labs design system: `#03050a` void, `#8fa3d6` mark, `#5ee0ff` signal,
 Space Grotesk + JetBrains Mono.
