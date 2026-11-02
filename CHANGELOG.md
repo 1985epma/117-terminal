@@ -41,6 +41,10 @@ All notable changes to 117Terminal. Versions follow [SemVer](https://semver.org)
   Keychain back on in Settings › AI Agent.
 
 ### Fixed
+- **Linux x86_64 packages did not run on current distros.** CI built them on `ubuntu-latest`, now Ubuntu 26.04, so the
+  terminal's native module required glibc 2.42 and failed on Ubuntu 22.04/24.04, Debian 12 and Fedora 41
+  (`GLIBC_2.42 not found`). Linux packages are now built on Ubuntu 22.04 (glibc 2.35), and the release fails if a native
+  module needs anything newer. Found by the new install test; arm64 was not affected.
 - Web mode with its port already taken hung instead of exiting: the WebSocket server re-emitted the error as an
   uncaught exception. It now exits with code 3 (and the Settings button shows the error).
 - **Linux: the `.deb` now depends on `libgbm1`** (and the `.rpm` on `mesa-libgbm`). On a minimal Ubuntu 24.04 install the
