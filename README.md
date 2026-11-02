@@ -323,6 +323,12 @@ scripts/                     # adhoc-sign.cjs (macOS) · brand-dev.mjs
 Styled after the 117-Labs design system: `#03050a` void, `#8fa3d6` mark, `#5ee0ff` signal,
 Space Grotesk + JetBrains Mono.
 
+| brand asset | file |
+|---|---|
+| app icon (source) | [`build/icon.svg`](build/icon.svg) → `icon.png` · `icon.icns` |
+| link preview (1280×640) | [`docs/social-preview.png`](docs/social-preview.png) — set in *Settings → Social preview* |
+| screenshots | [`docs/screenshots/`](docs/screenshots) |
+
 <sub><code>EOF // MIT licensed · stay dark, stay curious</code></sub>
 
 </div>

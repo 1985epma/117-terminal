@@ -2,6 +2,15 @@
 
 All notable changes to 117Terminal. Versions follow [SemVer](https://semver.org); dates are UTC.
 
+## [Unreleased]
+
+### Added
+- Social preview card (`docs/social-preview.png`, 1280×640) so shared links show 117Terminal instead of GitHub's
+  default card. It is centred so WhatsApp's square crop still shows the icon and name.
+
+### Changed
+- Shorter repository description and GitHub topics.
+
 ## [0.1.2] — 2026-11-02
 
 ### Added
