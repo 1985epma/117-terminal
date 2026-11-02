@@ -1,8 +1,8 @@
 {
   "name": "117-terminal",
   "productName": "117Terminal",
-  "version": "0.1.0",
-  "description": "117Terminal \u2014 a block-based terminal with Agent Mode, zsh extensions, MCP and brewcat. By 117-Labs.",
+  "version": "0.1.1",
+  "description": "117Terminal — a block-based terminal with Agent Mode, zsh extensions, MCP and brewcat. By 117-Labs.",
   "main": "out/main/index.js",
   "author": {
     "name": "Everton Araujo",

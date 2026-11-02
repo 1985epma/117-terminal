@@ -4,6 +4,7 @@
 //   ESC ] 6973 ; D ; <code> BEL -> command finished / prompt ready (precmd)
 //   ESC ] 6973 ; P ; <cwd> BEL  -> current directory
 //   ESC ] 6973 ; G ; <branch>   -> current git branch (empty if none)
+import { app } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
 
@@ -117,7 +118,7 @@ export function prepareShell(userDataDir) {
     return {
       shell,
       args: ['-NoLogo', '-NoExit', '-ExecutionPolicy', 'Bypass', '-Command', `. '${script.replace(/'/g, "''")}'`],
-      env: { ...process.env, TERM_PROGRAM: '117Terminal', TERM_PROGRAM_VERSION: '0.1.0' },
+      env: { ...process.env, TERM_PROGRAM: '117Terminal', TERM_PROGRAM_VERSION: app.getVersion() },
       bracketedPaste: false
     }
   }
@@ -129,7 +130,7 @@ export function prepareShell(userDataDir) {
     TERM: 'xterm-256color',
     COLORTERM: 'truecolor',
     TERM_PROGRAM: '117Terminal',
-    TERM_PROGRAM_VERSION: '0.1.0',
+    TERM_PROGRAM_VERSION: app.getVersion(),
     LANG: process.env.LANG || 'en_US.UTF-8'
   }
 

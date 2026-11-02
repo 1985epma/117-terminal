@@ -1,6 +1,6 @@
 // MCP client for Agent Mode. Servers live in ~/.117terminal/mcp.json using the same
 // "mcpServers" shape as Claude, so configs can be imported from other tools.
-import { ipcMain } from 'electron'
+import { app, ipcMain } from 'electron'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -89,7 +89,7 @@ async function connect(name) {
     } else {
       transport = new StdioClientTransport({ command: def.command, args: (def.args || []).map((a) => expand(a, env)), env, stderr: 'pipe' })
     }
-    const client = new Client({ name: '117Terminal', version: '0.1.0' })
+    const client = new Client({ name: '117Terminal', version: app.getVersion() })
     await Promise.race([
       client.connect(transport),
       new Promise((_, rej) => setTimeout(() => rej(new Error('Timed out after 60s')), 60000))

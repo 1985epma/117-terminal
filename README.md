@@ -25,7 +25,7 @@
 </div>
 
 ```text
-[ 0.000] 117TERMINAL BIOS v0.1.0 ............................ OK
+[ 0.000] 117TERMINAL BIOS v0.1.1 ............................ OK
 [ 0.012] pty bridge (node-pty) ............................. OK
 [ 0.031] shell integration (OSC 6973 markers) .............. OK
 [ 0.044] xterm.js parser ................................... OK

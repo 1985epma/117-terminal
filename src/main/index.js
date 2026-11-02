@@ -14,7 +14,7 @@ import { appName, isKeyExport, runKeyExport, migrateBeforeReady } from './migrat
 
 // Shown in the macOS menu bar, Dock and app switcher instead of "Electron".
 app.setName(appName())
-app.setAboutPanelOptions({ applicationName: '117Terminal', applicationVersion: '0.1.0' })
+app.setAboutPanelOptions({ applicationName: '117Terminal', applicationVersion: app.getVersion() })
 const migratedKeys = isKeyExport() ? null : migrateBeforeReady()
 
 // Window look (blur behind the window) survives restarts.
