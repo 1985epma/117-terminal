@@ -192,7 +192,7 @@ That's how it runs on **HarmonyOS** (PC, tablet, phone), iPads, Chromebooks or a
 | where | the command is |
 |---|---|
 | macOS (Homebrew cask) | `117terminal --serve`, or `/Applications/117Terminal.app/Contents/MacOS/117Terminal --serve` |
-| Linux (deb / rpm / brew) | `117terminal --serve` (add `--no-sandbox` for the tar.gz) |
+| Linux (deb / rpm / brew) | `117terminal --serve` (add `--no-sandbox` for the tar.gz, and as root: Chromium refuses to start as root without it) |
 | Windows | `117Terminal.exe --serve` from its install folder (Start menu → 117Terminal → *Open file location*). A Windows GUI app cannot print to the console, so read the link from `%APPDATA%\117Terminal\web.json` |
 
 The URL is the only thing on **stdout** (messages go to stderr), so scripts can do `URL=$(117terminal --serve)`, or

@@ -198,6 +198,8 @@ ${p.bold('Examples')}
 
 ${p.bold('Exit codes')}
   0 ok · 1 error · 2 wrong usage · 3 port already in use
+
+As root (containers, servers), Chromium needs --no-sandbox on every command.
 `
 }
 
