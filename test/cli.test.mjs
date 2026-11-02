@@ -1,4 +1,4 @@
-// Contract tests for the 117terminal command line (src/main/cli.js). Run: node --test test/
+// Contract tests for the 117terminal command line (src/main/cli.js). Run: npm test
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import os from 'node:os'
