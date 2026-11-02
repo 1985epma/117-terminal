@@ -4,6 +4,8 @@ All notable changes to 117Terminal. Versions follow [SemVer](https://semver.org)
 
 ## [Unreleased]
 
+## [0.1.3] — 2026-11-02
+
 ### Added
 - **Web mode for HarmonyOS and any browser**: `117terminal --serve [--host] [--port] [--token] [--open]` runs headless
   and serves the full UI over HTTP + WebSocket, protected by a random token (HttpOnly cookie) and Host/Origin checks.
