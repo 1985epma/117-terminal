@@ -180,7 +180,12 @@ from the panel.
 
 ## `$ sudo make install`
 
-**Grab a build** from [Releases](https://github.com/1985epma/117-terminal/releases/latest), or let a package manager do it:
+**Grab a build** from [Releases](https://github.com/1985epma/117-terminal/releases/latest), or let a package manager do it.
+Homebrew needs the [tap](https://github.com/1985epma/homebrew-117terminal) trusted once:
+
+```bash
+brew tap 1985epma/117terminal && brew trust 1985epma/117terminal
+```
 
 | system | command |
 |---|---|
@@ -188,7 +193,25 @@ from the panel.
 | 🐧 Linux (Homebrew) | `brew install 1985epma/117terminal/117terminal` |
 | 🐧 Debian / Ubuntu | download the `.deb`, then `sudo apt install ./117Terminal-*.deb` |
 | 🐧 Fedora / RHEL / openSUSE | download the `.rpm`, then `sudo dnf install ./117Terminal-*.rpm` |
+| 🪟 Windows (winget) | `winget install 1985epma.117Terminal` — *[in review](https://github.com/microsoft/winget-pkgs/pull/468426), live once Microsoft approves* |
 | 🪟 Windows | download the `.msi` and run it (uses PowerShell; `pwsh` if installed) |
+
+### `$ ls ./releases/latest`
+
+Every tag `vX.Y.Z` is built on GitHub Actions (macOS, Windows, Ubuntu) and published with a `SHA256SUMS.txt`:
+
+| file | for |
+|---|---|
+| `117Terminal-X.Y.Z-mac-arm64.dmg` / `.zip` | macOS, Apple Silicon |
+| `117Terminal-X.Y.Z-mac-x64.dmg` / `.zip` | macOS, Intel |
+| `117Terminal-X.Y.Z-win-x64.msi` | Windows 10/11 x64 |
+| `117Terminal-X.Y.Z-linux-amd64.deb` | Debian, Ubuntu |
+| `117Terminal-X.Y.Z-linux-x86_64.rpm` | Fedora, RHEL, openSUSE |
+| `117Terminal-X.Y.Z-linux-x64.tar.gz` | any Linux x64 (portable) |
+
+```bash
+sha256sum -c SHA256SUMS.txt --ignore-missing   # verify what you downloaded
+```
 
 > 🛡️ **Builds aren't notarized/signed by a paid certificate yet.** The Homebrew cask clears macOS quarantine for you. With
 > the raw `.dmg`, right-click → *Open* the first time. On Windows, SmartScreen may ask: *More info → Run anyway*.
@@ -212,8 +235,20 @@ npm run build && npm start
 | `npm run build && npm start` | production build |
 | `npm run dist:mac` · `dist:win` · `dist:linux` | package for one OS into `dist/` |
 
-**Runs on:** macOS (Apple Silicon and Intel) — the main, fully tested platform. Linux (zsh, bash, fish) and Windows
-(PowerShell) builds come from CI; the music deck is macOS-only. Shells with block integration: zsh, bash, fish, PowerShell.
+**Cutting a release:** bump `version` in `package.json`, commit, then `git tag -a vX.Y.Z -m "117Terminal X.Y.Z" && git push
+origin vX.Y.Z`. The tag must match the version (the workflow checks). Then update the Homebrew tap with
+`scripts/bump.sh X.Y.Z` in [homebrew-117terminal](https://github.com/1985epma/homebrew-117terminal) and the winget manifest.
+See [CHANGELOG.md](CHANGELOG.md).
+
+**Runs on:**
+
+| platform | status | shells with blocks |
+|---|---|---|
+| macOS 13+ (Apple Silicon, Intel) | 🟢 main platform, tested | zsh, bash, fish |
+| Linux x64 (glibc ≈ Ubuntu 22.04 / Debian 12+) | 🟡 built and packaged in CI | zsh, bash, fish |
+| Windows 10/11 x64 | 🟡 built in CI, block integration untested on real hardware | PowerShell (`pwsh` preferred) |
+
+The music deck is macOS-only. Everything else (blocks, agent, MCP, themes) is cross-platform.
 
 ---
 
@@ -223,7 +258,7 @@ npm run build && npm start
 src/
 ├── main/                    # the backend: Electron main process
 │   ├── index.js             # window, menu, PTYs, completion, history
-│   ├── shell-integration.js # zsh/bash shims → OSC 6973 block markers
+│   ├── shell-integration.js # zsh/bash/fish/PowerShell shims → OSC 6973 markers
 │   ├── ai.js                # providers, Keychain keys, streaming tool calls
 │   ├── mcp.js               # MCP client: presets, imports, tool calls
 │   ├── zsh-plugins.js       # plugin & prompt catalog → plugins.zsh
@@ -231,6 +266,8 @@ src/
 │   ├── music.js             # Spotify + Apple Music via AppleScript
 │   └── migrate.js           # one-time move from the old ETerm identity
 ├── preload/                 # the only door between UI and system
+.github/workflows/           # ci.yml (build on push) · release.yml (packages on tag)
+scripts/                     # adhoc-sign.cjs (macOS) · brand-dev.mjs
 └── renderer/src/            # React UI
     ├── lib/session.js       # PTY stream → blocks, PS1 capture
     ├── lib/agent.js         # plan → approve → run → read → repeat

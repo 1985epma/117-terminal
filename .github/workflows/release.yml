@@ -165,7 +165,8 @@ jobs:
           \`SHA256SUMS.txt\` lists checksums: \`sha256sum -c SHA256SUMS.txt --ignore-missing\`.
 
           ### Install
-          - **Homebrew**: \`brew install --cask 1985epma/117terminal/117terminal\` on macOS (clears the quarantine flag for you), \`brew install 1985epma/117terminal/117terminal\` on Linux.
+          - **Homebrew**: once, \`brew tap 1985epma/117terminal && brew trust 1985epma/117terminal\`; then \`brew install --cask 1985epma/117terminal/117terminal\` on macOS (clears the quarantine flag for you), \`brew install 1985epma/117terminal/117terminal\` on Linux.
+          - **winget** (Windows): \`winget install 1985epma.117Terminal\` once the package is approved in winget-pkgs.
           - **macOS**: open the DMG and drag 117Terminal to Applications. The app is ad-hoc signed (not notarized), so clear the quarantine flag once: \`xattr -dr com.apple.quarantine /Applications/117Terminal.app\`. The brewcat tab needs [Homebrew](https://brew.sh) (\`brew\` on your PATH).
           - **Windows**: run the MSI. It is unsigned, so SmartScreen may warn: choose *More info* then *Run anyway*.
           - **Debian/Ubuntu**: \`sudo apt install ./117Terminal-${VERSION}-linux-amd64.deb\`, then launch \`117terminal\`.
