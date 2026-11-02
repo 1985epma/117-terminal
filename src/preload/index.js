@@ -7,6 +7,7 @@ const listen = (channel) => (cb) => {
 }
 
 contextBridge.exposeInMainWorld('eterm', {
+  platform: process.platform,
   pty: {
     create: (opts) => ipcRenderer.invoke('pty:create', opts),
     write: (id, data) => ipcRenderer.send('pty:write', id, data),

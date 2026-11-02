@@ -2,9 +2,12 @@
   "name": "117-terminal",
   "productName": "117Terminal",
   "version": "0.1.0",
-  "description": "A modern, block-based terminal inspired by Warp \u2014 built with React + Electron",
+  "description": "117Terminal \u2014 a block-based terminal with Agent Mode, zsh extensions, MCP and brewcat. By 117-Labs.",
   "main": "out/main/index.js",
-  "author": "Everton Araujo",
+  "author": {
+    "name": "Everton Araujo",
+    "email": "everton.araujo1985@gmail.com"
+  },
   "license": "MIT",
   "scripts": {
     "dev": "electron-vite dev",
@@ -12,7 +15,10 @@
     "start": "electron-vite preview",
     "rebuild": "electron-rebuild -f -w node-pty",
     "postinstall": "electron-rebuild -f -w node-pty && node scripts/brand-dev.mjs",
-    "dist": "electron-vite build && electron-builder --mac"
+    "dist": "electron-vite build && electron-builder",
+    "dist:mac": "electron-vite build && electron-builder --mac",
+    "dist:win": "electron-vite build && electron-builder --win",
+    "dist:linux": "electron-vite build && electron-builder --linux"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",
@@ -34,24 +40,97 @@
   "build": {
     "appId": "dev.117terminal.app",
     "productName": "117Terminal",
+    "artifactName": "117Terminal-${version}-${os}-${arch}.${ext}",
     "files": [
       "out/**/*",
-      "package.json"
+      "package.json",
+      "build/icon.png"
     ],
     "asarUnpack": [
       "node_modules/node-pty/**"
     ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "afterSign": "scripts/adhoc-sign.cjs",
+    "publish": null,
     "mac": {
       "category": "public.app-category.developer-tools",
+      "icon": "build/icon.icns",
+      "identity": null,
       "target": [
-        "dmg",
-        "zip"
-      ],
-      "icon": "build/icon.icns"
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ]
     },
-    "directories": {
-      "output": "dist"
+    "dmg": {
+      "title": "117Terminal ${version}"
     },
-    "icon": "build/icon.png"
-  }
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "msi",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "msi": {
+      "oneClick": false,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "117Terminal"
+    },
+    "linux": {
+      "icon": "build/icon.png",
+      "executableName": "117terminal",
+      "category": "System",
+      "synopsis": "Block-based terminal with Agent Mode",
+      "maintainer": "Everton Araujo <everton.araujo1985@gmail.com>",
+      "target": [
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "tar.gz",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "deb": {
+      "depends": [
+        "libnss3",
+        "libgtk-3-0",
+        "libxss1",
+        "libasound2 | libasound2t64"
+      ]
+    }
+  },
+  "homepage": "https://github.com/1985epma/117-terminal",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/1985epma/117-terminal.git"
+  },
+  "desktopName": "117terminal.desktop"
 }

@@ -1,0 +1,165 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # dmg + zip for arm64 and x64 in one run (see build.mac in package.json)
+          - name: macOS
+            os: macos-latest
+            target: --mac
+          # msi x64
+          - name: Windows
+            os: windows-latest
+            target: --win
+          # deb + tar.gz x64
+          - name: Linux
+            os: ubuntu-latest
+            target: --linux
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Artifact names come from package.json "version"; refuse to build a
+      # release whose files would carry a different version than its tag.
+      - name: Check tag matches package.json version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if [ "v$PKG_VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $PKG_VERSION"
+            exit 1
+          fi
+
+      # node-pty ships no Linux prebuild, so postinstall compiles it.
+      - name: Install Linux build tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends python3 make g++
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build app (electron-vite)
+        run: npx electron-vite build
+
+      - name: Package (electron-builder)
+        if: runner.os != 'Linux'
+        run: npx electron-builder ${{ matrix.target }} --publish never
+        env:
+          # No Developer ID: skip keychain lookup; scripts/adhoc-sign.cjs signs ad hoc on macOS.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      # The upstream Electron Linux zip stores files as 0666/0777, and fpm copies
+      # those modes into the .deb (a world-writable /opt/117Terminal/117terminal).
+      # Pack the app dir first, drop group/other write, then build deb + tar.gz.
+      - name: Package (electron-builder, Linux)
+        if: runner.os == 'Linux'
+        run: |
+          npx electron-builder --linux --dir --publish never
+          chmod -R go-w dist/linux-unpacked
+          npx electron-builder --linux --prepackaged dist/linux-unpacked --publish never
+
+      - name: Check .deb has no world-writable files
+        if: runner.os == 'Linux'
+        run: |
+          WW="$(dpkg-deb -c dist/*.deb | awk '$1 ~ /^[^dl].......w/')"
+          if [ -n "$WW" ]; then
+            echo "::error::World-writable files in .deb:"
+            echo "$WW"
+            exit 1
+          fi
+          dpkg-deb -I dist/*.deb
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-${{ runner.os }}
+          path: |
+            dist/*.dmg
+            dist/*.zip
+            dist/*.msi
+            dist/*.deb
+            dist/*.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+  release:
+    name: GitHub Release
+    needs: build
+    # workflow_dispatch from a branch only produces build artifacts.
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: packages-*
+          path: release
+          merge-multiple: true
+
+      - name: Write SHA256SUMS.txt
+        working-directory: release
+        run: |
+          sha256sum -- * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          cat > notes.md <<EOF
+          117Terminal ${VERSION}: block-based terminal with Agent Mode, zsh extensions, MCP and brewcat.
+
+          ### Downloads
+          | Platform | File |
+          | --- | --- |
+          | macOS Apple Silicon | \`117Terminal-${VERSION}-mac-arm64.dmg\` (or \`.zip\`) |
+          | macOS Intel | \`117Terminal-${VERSION}-mac-x64.dmg\` (or \`.zip\`) |
+          | Windows x64 | \`117Terminal-${VERSION}-win-x64.msi\` |
+          | Linux x64 (Debian/Ubuntu) | \`117Terminal-${VERSION}-linux-amd64.deb\` |
+          | Linux x64 (portable) | \`117Terminal-${VERSION}-linux-x64.tar.gz\` |
+
+          \`SHA256SUMS.txt\` lists checksums: \`sha256sum -c SHA256SUMS.txt --ignore-missing\`.
+
+          ### Install
+          - **Homebrew**: \`brew install --cask 1985epma/117terminal/117terminal\` on macOS (clears the quarantine flag for you), \`brew install 1985epma/117terminal/117terminal\` on Linux.
+          - **macOS**: open the DMG and drag 117Terminal to Applications. The app is ad-hoc signed (not notarized), so clear the quarantine flag once: \`xattr -dr com.apple.quarantine /Applications/117Terminal.app\`. The brewcat tab needs [Homebrew](https://brew.sh) (\`brew\` on your PATH).
+          - **Windows**: run the MSI. It is unsigned, so SmartScreen may warn: choose *More info* then *Run anyway*.
+          - **Debian/Ubuntu**: \`sudo apt install ./117Terminal-${VERSION}-linux-amd64.deb\`, then launch \`117terminal\`.
+          - **Other Linux**: \`tar xzf 117Terminal-${VERSION}-linux-x64.tar.gz\` and run \`./117Terminal-${VERSION}-linux-x64/117terminal\`. If it aborts with a sandbox error (Ubuntu 24.04+ restricts user namespaces), prefer the .deb, which installs an AppArmor profile.
+          EOF
+
+          gh release create "$GITHUB_REF_NAME" release/* \
+            --verify-tag \
+            --title "117Terminal $VERSION" \
+            --notes-file notes.md

@@ -38,9 +38,11 @@ function createWindow() {
     minWidth: 560,
     minHeight: 360,
     title: '117Terminal',
-    // Transparent so the page can choose its own opacity (Themes › Transparency).
-    transparent: true,
-    backgroundColor: '#00000000',
+    // macOS: transparent so the page can choose its own opacity (Themes › Transparency).
+    transparent: process.platform === 'darwin',
+    backgroundColor: process.platform === 'darwin' ? '#00000000' : '#000000',
+    icon: process.platform === 'linux' ? path.join(__dirname, '../../build/icon.png') : undefined,
+    autoHideMenuBar: process.platform !== 'darwin',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     trafficLightPosition: { x: 14, y: 13 },
     vibrancy: process.platform === 'darwin' && windowPrefs().blur ? 'under-window' : undefined,
@@ -133,7 +135,7 @@ function buildMenu() {
 
 ipcMain.handle('pty:create', (_e, { id, cols, rows, cwd }) => {
   ptys.get(id)?.kill() // a renderer reload reuses session ids
-  const { shell, args, env } = prepareShell(app.getPath('userData'))
+  const { shell, args, env, bracketedPaste } = prepareShell(app.getPath('userData'))
   const startDir = cwd && fs.existsSync(cwd) ? cwd : os.homedir()
   const p = pty.spawn(shell, args, {
     name: 'xterm-256color',
@@ -148,7 +150,7 @@ ipcMain.handle('pty:create', (_e, { id, cols, rows, cwd }) => {
     ptys.delete(id)
     send('pty:exit', id, exitCode)
   })
-  return { shell: path.basename(shell), cwd: startDir, home: os.homedir() }
+  return { shell: path.basename(shell).replace(/\.exe$/i, ''), cwd: startDir, home: os.homedir(), bracketedPaste }
 })
 
 ipcMain.on('pty:write', (_e, id, data) => ptys.get(id)?.write(data))

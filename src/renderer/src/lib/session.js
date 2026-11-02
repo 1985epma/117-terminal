@@ -124,6 +124,7 @@ export class Session {
     this.promptTerm.resize(cols, 8)
     const info = await window.eterm.pty.create({ id: this.id, cols, rows, cwd: this.cwd })
     this.shellName = info.shell
+    this.bracketedPaste = info.bracketedPaste !== false
     setHome(info.home)
     if (!this.cwd) this.cwd = info.cwd
     this._emit()
@@ -217,8 +218,9 @@ export class Session {
     this.blocks.push(block)
     this.state = 'submitted'
     this.submittedBuffer = ''
-    // Bracketed paste keeps multi-line commands intact, then Enter runs it.
-    window.eterm.pty.write(this.id, `\x1b[200~${command}\x1b[201~\r`)
+    // Bracketed paste keeps multi-line commands intact; PowerShell gets one line.
+    const payload = this.bracketedPaste ? `\x1b[200~${command}\x1b[201~` : command.replace(/\r?\n/g, '; ')
+    window.eterm.pty.write(this.id, `${payload}\r`)
     // Programs that read single keys work better in a real terminal view.
     if (/^(p10k configure|ssh|mosh|telnet)\b/.test(trimmed)) this.rawBlock = block
     this._emit()

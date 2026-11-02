@@ -64,10 +64,66 @@ trap '__eterm_preexec' DEBUG
 PROMPT_COMMAND="__eterm_ec=\\$?;\${PROMPT_COMMAND:+$PROMPT_COMMAND;}__eterm_precmd"
 `
 
+const FISH = `function __t117_postexec --on-event fish_postexec
+  set -g __t117_status $status
+end
+function __t117_prompt --on-event fish_prompt
+  set -q __t117_status; or set -g __t117_status 0
+  printf '\\e]6973;D;%s\\a\\e]6973;P;%s\\a\\e]6973;G;%s\\a' $__t117_status $PWD (command git symbolic-ref --short HEAD 2>/dev/null)
+end
+function __t117_preexec --on-event fish_preexec
+  printf '\\e]6973;C\\a'
+end
+`
+
+// PowerShell (Windows): wrap prompt for D/P/G and PSReadLine's line reader for C.
+const POWERSHELL = `$__t117e = [char]27; $__t117b = [char]7
+$Global:__T117OrigPrompt = $function:prompt
+function Global:prompt {
+  $ok = $?
+  $code = if ($ok) { 0 } elseif ($LASTEXITCODE) { $LASTEXITCODE } else { 1 }
+  $branch = ''
+  if (Get-Command git -ErrorAction SilentlyContinue) { $branch = (git symbolic-ref --short HEAD 2>$null) }
+  [Console]::Write("$__t117e]6973;D;$code$__t117b$__t117e]6973;P;$($PWD.ProviderPath)$__t117b$__t117e]6973;G;$branch$__t117b")
+  & $Global:__T117OrigPrompt
+}
+if (Get-Module -ListAvailable PSReadLine) {
+  function Global:PSConsoleHostReadLine {
+    $line = [Microsoft.PowerShell.PSConsoleReadLine]::ReadLine($Host.Runspace, $ExecutionContext)
+    [Console]::Write("$__t117e]6973;C$__t117b")
+    $line
+  }
+}
+`
+
+function findOnPath(names) {
+  for (const dir of (process.env.PATH || '').split(path.delimiter)) {
+    for (const n of names) {
+      const full = path.join(dir, n)
+      if (fs.existsSync(full)) return full
+    }
+  }
+  return null
+}
+
+// bracketedPaste: whether the shell's line editor accepts ESC[200~ pastes.
 export function prepareShell(userDataDir) {
-  const shell = process.env.SHELL || '/bin/zsh'
-  const name = path.basename(shell)
   const base = path.join(userDataDir, 'shell-integration')
+  if (process.platform === 'win32') {
+    const shell = findOnPath(['pwsh.exe']) || 'powershell.exe'
+    fs.mkdirSync(base, { recursive: true })
+    const script = path.join(base, 'integration.ps1')
+    fs.writeFileSync(script, POWERSHELL)
+    return {
+      shell,
+      args: ['-NoLogo', '-NoExit', '-ExecutionPolicy', 'Bypass', '-Command', `. '${script.replace(/'/g, "''")}'`],
+      env: { ...process.env, TERM_PROGRAM: '117Terminal', TERM_PROGRAM_VERSION: '0.1.0' },
+      bracketedPaste: false
+    }
+  }
+
+  const shell = process.env.SHELL || (fs.existsSync('/bin/zsh') ? '/bin/zsh' : '/bin/bash')
+  const name = path.basename(shell)
   const env = {
     ...process.env,
     TERM: 'xterm-256color',
@@ -85,16 +141,23 @@ export function prepareShell(userDataDir) {
     fs.writeFileSync(path.join(dir, '.zshrc'), ZSHRC)
     env.ETERM_USER_ZDOTDIR = process.env.ZDOTDIR || process.env.HOME
     env.ZDOTDIR = dir
-    return { shell, args: ['-l'], env }
+    return { shell, args: ['-l'], env, bracketedPaste: true }
+  }
+
+  if (name === 'fish') {
+    fs.mkdirSync(base, { recursive: true })
+    const rc = path.join(base, 'integration.fish')
+    fs.writeFileSync(rc, FISH)
+    return { shell, args: ['-l', '-C', `source '${rc}'`], env, bracketedPaste: true }
   }
 
   if (name === 'bash') {
     fs.mkdirSync(base, { recursive: true })
     const rc = path.join(base, 'bashrc')
     fs.writeFileSync(rc, BASHRC)
-    return { shell, args: ['--rcfile', rc, '-i'], env }
+    return { shell, args: ['--rcfile', rc, '-i'], env, bracketedPaste: true }
   }
 
   // Unknown shell: works, but without blocks metadata.
-  return { shell, args: ['-l'], env }
+  return { shell, args: ['-l'], env, bracketedPaste: true }
 }

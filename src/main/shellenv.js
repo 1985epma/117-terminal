@@ -6,6 +6,7 @@ let envPromise = null
 
 export function shellEnv() {
   if (envPromise) return envPromise
+  if (process.platform === 'win32') return (envPromise = Promise.resolve({ ...process.env }))
   envPromise = new Promise((resolve) => {
     const shell = process.env.SHELL || '/bin/zsh'
     const marker = '__ETERM_ENV__'
@@ -43,6 +44,6 @@ export async function run(cmd, args, opts = {}) {
 }
 
 export async function which(bin) {
-  const r = await run('/usr/bin/which', [bin], { timeout: 5000 })
-  return r.ok ? r.stdout.trim() : ''
+  const r = process.platform === 'win32' ? await run('where', [bin], { timeout: 5000 }) : await run('/usr/bin/which', [bin], { timeout: 5000 })
+  return r.ok ? r.stdout.trim().split(/\r?\n/)[0] : ''
 }

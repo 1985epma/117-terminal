@@ -1375,3 +1375,9 @@ button.link.recommend {
 .welcome h1 .wordmark-name {
   font-size: 30px;
 }
+
+/* Only macOS has traffic lights inside the tab bar. */
+:root:not([data-platform='darwin']) .tabbar {
+  padding-left: 10px;
+  -webkit-app-region: no-drag;
+}
