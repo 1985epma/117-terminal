@@ -5,7 +5,7 @@ import { ipcMain } from './ipc.js'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { resolve, openaiHeaders, apiErrorMessage, activeProviderId, complete, PROVIDERS } from './ai.js'
+import { resolve, hasKey, openaiHeaders, apiErrorMessage, activeProviderId, complete, PROVIDERS } from './ai.js'
 import { run, which } from './shellenv.js'
 import { ETERM_DIR } from './zsh-plugins.js'
 
@@ -30,10 +30,7 @@ const MODELS = {
 }
 const modelUrl = (file) => `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/${file}`
 
-const ready = (id) => {
-  const p = resolve(id)
-  return !p.needsKey || !!p.apiKey
-}
+const ready = (id) => !PROVIDERS[id].needsKey || hasKey(id)
 
 async function whisperBin() {
   return (await which('whisper-cli')) || (await which('whisper-cpp')) || ''

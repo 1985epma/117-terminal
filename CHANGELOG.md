@@ -4,6 +4,10 @@ All notable changes to 117Terminal. Versions follow [SemVer](https://semver.org)
 
 ## [Unreleased]
 
+### Fixed
+- macOS no longer asks for the Keychain password when the app opens. Saved API keys are now read only when a key is
+  actually used (agent, voice, model list), and the provider list shows a stored hint instead of decrypting every key.
+
 ## [0.1.3] — 2026-11-02
 
 ### Added

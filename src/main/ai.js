@@ -124,9 +124,12 @@ function saveConfig() {
   fs.writeFileSync(configPath(), JSON.stringify(config, null, 2), { mode: 0o600 })
 }
 
+// `hint` (last 4 characters) is kept beside the ciphertext so listing providers never
+// touches the Keychain: macOS only asks for it when a key is actually used.
 function encrypt(text) {
-  if (safeStorage.isEncryptionAvailable()) return { enc: safeStorage.encryptString(text).toString('base64') }
-  return { plain: text }
+  const hint = text.slice(-4)
+  if (safeStorage.isEncryptionAvailable()) return { enc: safeStorage.encryptString(text).toString('base64'), hint }
+  return { plain: text, hint }
 }
 
 function decrypt(stored) {
@@ -139,11 +142,22 @@ function decrypt(stored) {
   }
 }
 
+// True when a key is saved or in the environment, without reading the Keychain.
+export function hasKey(id) {
+  const def = PROVIDERS[id]
+  return !!(loadConfig().providers[id]?.key || (def?.env && process.env[def.env]))
+}
+
 export function resolve(id) {
   const def = PROVIDERS[id]
   if (!def) throw new Error(`Unknown provider: ${id}`)
   const saved = loadConfig().providers[id] || {}
   const savedKey = decrypt(saved.key)
+  // Keys saved before hints existed get one the first time they are used.
+  if (savedKey && !saved.key.hint) {
+    saved.key.hint = savedKey.slice(-4)
+    saveConfig()
+  }
   const envKey = def.env ? process.env[def.env] || '' : ''
   return {
     id,
@@ -171,7 +185,16 @@ function publicConfig() {
     active: c.active,
     autoRunSafe: c.autoRunSafe,
     providers: Object.keys(PROVIDERS).map((id) => {
-      const p = resolve(id)
+      const def = PROVIDERS[id]
+      const saved = c.providers[id] || {}
+      const envKey = def.env ? process.env[def.env] || '' : ''
+      const hint = saved.key ? saved.key.hint || saved.key.plain?.slice(-4) || '' : envKey.slice(-4)
+      const p = {
+        ...def,
+        baseUrl: (saved.baseUrl || def.baseUrl).replace(/\/+$/, ''),
+        model: saved.model || def.defaultModel || '',
+        keySource: saved.key ? 'saved' : envKey ? 'env' : null
+      }
       return {
         id,
         label: p.label,
@@ -180,9 +203,9 @@ function publicConfig() {
         defaultBaseUrl: PROVIDERS[id].baseUrl,
         model: p.model,
         needsKey: p.needsKey,
-        hasKey: !!p.apiKey,
+        hasKey: !!p.keySource,
         keySource: p.keySource,
-        keyHint: p.apiKey ? `••••${p.apiKey.slice(-4)}` : '',
+        keyHint: p.keySource ? `••••${hint}` : '',
         keyUrl: p.keyUrl || '',
         env: p.env || ''
       }
@@ -518,10 +541,10 @@ export function registerAiIpc(getWindow) {
     inflight.set(requestId, controller)
     try {
       const id = loadConfig().active
-      if (!id) throw new Error('No AI provider connected. Open Agent settings (⌘,) to connect one.')
+      if (!id) throw new Error('No AI provider connected. Open Settings › AI Agent (⌘,) to connect one.')
       const p = resolve(id)
-      if (p.needsKey && !p.apiKey) throw new Error(`${p.label} has no API key. Add one in Agent settings (⌘,).`)
-      if (!p.model) throw new Error(`Pick a model for ${p.label} in Agent settings (⌘,).`)
+      if (p.needsKey && !p.apiKey) throw new Error(`${p.label} has no API key. Add one in Settings › AI Agent (⌘,).`)
+      if (!p.model) throw new Error(`Pick a model for ${p.label} in Settings › AI Agent (⌘,).`)
       const onText = (text) => send('ai:event', requestId, { type: 'text', text })
       const mcp = await agentTools()
       const tools = [RUN_COMMAND_TOOL, ...mcp]
