@@ -1,7 +1,7 @@
 // Bridge to brewcat (github.com/1985epma/homebrew-brewcat): catalog search,
 // profiles and kits come from its --json CLI. Installs run as terminal blocks
 // in the renderer so the user sees (and can stop) them.
-import { ipcMain } from 'electron'
+import { ipcMain } from './ipc.js'
 import { spawn } from 'node:child_process'
 import { run, which, shellEnv } from './shellenv.js'
 

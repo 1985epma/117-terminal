@@ -4,7 +4,8 @@
 //   - "openai":    OpenAI-compatible Chat Completions over fetch + SSE
 //                  (OpenAI, Gemini, xAI Grok, Ollama, OpenRouter, Groq, ...)
 // API keys live only in the main process, encrypted with the OS keychain.
-import { app, ipcMain, safeStorage } from 'electron'
+import { app, safeStorage } from 'electron'
+import { ipcMain } from './ipc.js'
 import fs from 'node:fs'
 import path from 'node:path'
 import Anthropic from '@anthropic-ai/sdk'

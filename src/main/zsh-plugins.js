@@ -1,7 +1,7 @@
 // Zsh plugin & prompt manager. Plugins are cloned into ~/.117terminal/zsh/plugins
 // and loaded from one generated file (~/.117terminal/zsh/plugins.zsh). 117Terminal's shell
 // shim sources it, so the user's ~/.zshrc is never touched unless they opt in.
-import { ipcMain } from 'electron'
+import { ipcMain } from './ipc.js'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'

@@ -1381,3 +1381,73 @@ button.link.recommend {
   padding-left: 10px;
   -webkit-app-region: no-drag;
 }
+
+/* Web build: the 117Terminal server went away. */
+body[data-offline='true']::after {
+  content: 'Disconnected from 117Terminal — restart `117terminal --serve` and reload';
+  position: fixed;
+  left: 50%;
+  top: 52px;
+  transform: translateX(-50%);
+  z-index: 200;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--err);
+  color: #fff;
+  font-size: 12.5px;
+}
+
+/* ---------- Narrow screens (phones, tablets: web build) ---------- */
+@media (max-width: 720px) {
+  .tabbar {
+    gap: 6px;
+    padding-right: 6px;
+  }
+  .tab {
+    min-width: 0;
+    max-width: 140px;
+  }
+  .tabbar .tab-key,
+  .tabbar .brand .wordmark,
+  .tabbar .np-text,
+  .tabbar .np-bars,
+  .tabbar .np > :nth-child(2),
+  .tabbar .np > :nth-child(4) {
+    display: none;
+  }
+  .tabbar .np {
+    max-width: none;
+  }
+  .tabbar .tabs {
+    min-width: 96px;
+  }
+  .tabbar .palette-btn {
+    padding: 0 8px;
+    font-size: 0;
+  }
+  .tabbar .palette-btn span {
+    font-size: 12px;
+    margin: 0;
+  }
+  .tabbar .mic-lang {
+    min-width: 28px;
+    padding: 0 5px;
+  }
+  .tips {
+    grid-template-columns: 1fr;
+  }
+  .welcome {
+    margin-top: 4vh;
+  }
+  .block {
+    margin: 0 6px 6px;
+    padding: 8px 10px;
+  }
+  .block-actions {
+    display: none;
+  }
+  .voice-hud {
+    white-space: normal;
+    bottom: 96px;
+  }
+}

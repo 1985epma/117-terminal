@@ -23,16 +23,26 @@ jobs:
         include:
           # dmg + zip for arm64 and x64 in one run (see build.mac in package.json)
           - name: macOS
+            slug: macos
             os: macos-latest
             target: --mac
           # msi x64
           - name: Windows
+            slug: windows
             os: windows-latest
             target: --win
-          # deb + rpm + tar.gz x64
-          - name: Linux
+          # deb + rpm + tar.gz, built natively per arch (node-pty compiles on the runner)
+          - name: Linux x64
+            slug: linux-x64
             os: ubuntu-latest
             target: --linux
+            arch: x64
+          # arm64: HarmonyOS PC Linux environment, Raspberry Pi, ARM servers
+          - name: Linux arm64
+            slug: linux-arm64
+            os: ubuntu-24.04-arm
+            target: --linux
+            arch: arm64
     steps:
       - uses: actions/checkout@v4
 
@@ -79,9 +89,10 @@ jobs:
       - name: Package (electron-builder, Linux)
         if: runner.os == 'Linux'
         run: |
-          npx electron-builder --linux --dir --publish never
-          chmod -R go-w dist/linux-unpacked
-          npx electron-builder --linux --prepackaged dist/linux-unpacked --publish never
+          npx electron-builder --linux --${{ matrix.arch }} --dir --publish never
+          UNPACKED="$(ls -d dist/linux*-unpacked)"
+          chmod -R go-w "$UNPACKED"
+          npx electron-builder --linux --${{ matrix.arch }} --prepackaged "$UNPACKED" --publish never
 
       - name: Check .deb has no world-writable files
         if: runner.os == 'Linux'
@@ -108,7 +119,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: packages-${{ runner.os }}
+          name: packages-${{ matrix.slug }}
           path: |
             dist/*.dmg
             dist/*.zip
@@ -161,6 +172,9 @@ jobs:
           | Linux x64 (Debian/Ubuntu) | \`117Terminal-${VERSION}-linux-amd64.deb\` |
           | Linux x64 (Fedora/RHEL/openSUSE) | \`117Terminal-${VERSION}-linux-x86_64.rpm\` |
           | Linux x64 (portable) | \`117Terminal-${VERSION}-linux-x64.tar.gz\` |
+          | Linux arm64 (Debian/Ubuntu) | \`117Terminal-${VERSION}-linux-arm64.deb\` |
+          | Linux arm64 (Fedora/RHEL/openSUSE) | \`117Terminal-${VERSION}-linux-aarch64.rpm\` |
+          | Linux arm64 (portable, HarmonyOS PC Linux env) | \`117Terminal-${VERSION}-linux-arm64.tar.gz\` |
 
           \`SHA256SUMS.txt\` lists checksums: \`sha256sum -c SHA256SUMS.txt --ignore-missing\`.
 
@@ -171,6 +185,7 @@ jobs:
           - **Windows**: run the MSI. It is unsigned, so SmartScreen may warn: choose *More info* then *Run anyway*.
           - **Debian/Ubuntu**: \`sudo apt install ./117Terminal-${VERSION}-linux-amd64.deb\`, then launch \`117terminal\`.
           - **Fedora/RHEL/openSUSE**: \`sudo dnf install ./117Terminal-${VERSION}-linux-x86_64.rpm\` (or \`sudo zypper install\`), then launch \`117terminal\`.
+          - **Web mode** (HarmonyOS, tablets, any browser): run \`117terminal --serve\` and open the printed URL. See the README.
           - **Other Linux**: \`tar xzf 117Terminal-${VERSION}-linux-x64.tar.gz\` and run \`./117Terminal-${VERSION}-linux-x64/117terminal\`. If it aborts with a sandbox error (Ubuntu 24.04+ restricts user namespaces), prefer the .deb, which installs an AppArmor profile.
           EOF
 

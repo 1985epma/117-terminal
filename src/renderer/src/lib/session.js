@@ -24,6 +24,8 @@ const HELP_TEXT = `**Slash commands**
 
 let nextBlockId = 1
 let nextSessionId = 1
+// Unique across windows and browser tabs sharing one server.
+const sessionPrefix = Math.random().toString(36).slice(2, 8)
 export const newBlockId = () => nextBlockId++
 
 const OSC_PREFIX = '\x1b]6973;'
@@ -84,7 +86,7 @@ export class Block {
 
 export class Session {
   constructor({ cwd } = {}) {
-    this.id = `s${nextSessionId++}`
+    this.id = `s${sessionPrefix}-${nextSessionId++}`
     this.blocks = []
     this.state = 'starting' // starting | idle | submitted | running | exited
     this.cwd = cwd || ''

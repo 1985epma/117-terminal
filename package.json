@@ -2,7 +2,7 @@
   "name": "117-terminal",
   "productName": "117Terminal",
   "version": "0.1.2",
-  "description": "117Terminal — a block-based terminal with Agent Mode, zsh extensions, MCP and brewcat. By 117-Labs.",
+  "description": "117Terminal \u2014 a block-based terminal with Agent Mode, zsh extensions, MCP and brewcat. By 117-Labs.",
   "main": "out/main/index.js",
   "author": {
     "name": "Everton Araujo",
@@ -27,7 +27,8 @@
     "@xterm/xterm": "^6.0.0",
     "node-pty": "^1.1.0",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "ws": "^8.22.1"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.2.1",
@@ -108,22 +109,13 @@
       "maintainer": "Everton Araujo <everton.araujo1985@gmail.com>",
       "target": [
         {
-          "target": "deb",
-          "arch": [
-            "x64"
-          ]
+          "target": "deb"
         },
         {
-          "target": "tar.gz",
-          "arch": [
-            "x64"
-          ]
+          "target": "rpm"
         },
         {
-          "target": "rpm",
-          "arch": [
-            "x64"
-          ]
+          "target": "tar.gz"
         }
       ]
     },

@@ -1,6 +1,7 @@
 // MCP client for Agent Mode. Servers live in ~/.117terminal/mcp.json using the same
 // "mcpServers" shape as Claude, so configs can be imported from other tools.
-import { app, ipcMain } from 'electron'
+import { app } from 'electron'
+import { ipcMain } from './ipc.js'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'

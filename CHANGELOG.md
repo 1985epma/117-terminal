@@ -5,6 +5,11 @@ All notable changes to 117Terminal. Versions follow [SemVer](https://semver.org)
 ## [Unreleased]
 
 ### Added
+- **Web mode for HarmonyOS and any browser**: `117terminal --serve [--host] [--port] [--token] [--open]` runs headless
+  and serves the full UI over HTTP + WebSocket, protected by a random token (HttpOnly cookie) and Host/Origin checks.
+  Responsive layout for phones and tablets.
+- **Linux arm64** packages (`.deb`, `.rpm`, `.tar.gz`), built natively on GitHub's ARM runners — for the HarmonyOS PC
+  Linux environment, Raspberry Pi and ARM servers.
 - Social preview card (`docs/social-preview.png`, 1280×640) so shared links show 117Terminal instead of GitHub's
   default card. It is centred so WhatsApp's square crop still shows the icon and name.
 

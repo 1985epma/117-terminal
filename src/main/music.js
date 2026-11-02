@@ -1,7 +1,8 @@
 // Built-in music controls for Spotify and Apple Music via AppleScript.
 // Scripts only talk to an app that is already running, so polling never
 // launches anything. macOS asks once for Automation permission per app.
-import { app, ipcMain } from 'electron'
+import { app } from 'electron'
+import { ipcMain } from './ipc.js'
 import { execFile } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'

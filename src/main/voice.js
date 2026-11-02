@@ -1,6 +1,7 @@
 // Voice input: speech → text (cloud provider or local whisper.cpp) and
 // text → shell command. Audio arrives from the renderer as 16 kHz mono WAV.
-import { ipcMain, systemPreferences } from 'electron'
+import { systemPreferences } from 'electron'
+import { ipcMain } from './ipc.js'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'

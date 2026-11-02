@@ -1,9 +1,6 @@
-import { app, BrowserWindow, ipcMain, Menu, shell as electronShell, clipboard } from 'electron'
+import { app, BrowserWindow, Menu, shell as electronShell } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
-import os from 'node:os'
-import pty from 'node-pty'
-import { prepareShell } from './shell-integration.js'
 import { registerAiIpc, importKeys } from './ai.js'
 import { registerZshIpc } from './zsh-plugins.js'
 import { registerMcpIpc } from './mcp.js'
@@ -11,12 +8,32 @@ import { registerBrewcatIpc } from './brewcat.js'
 import { registerMusicIpc } from './music.js'
 import { registerVoiceIpc } from './voice.js'
 import { shellEnv } from './shellenv.js'
+import { ipcMain, addSink, broadcastWindow } from './ipc.js'
+import { registerCoreIpc, killOwner } from './core.js'
+import { startWebServer } from './web-server.js'
 import { appName, isKeyExport, runKeyExport, migrateBeforeReady } from './migrate.js'
 
 // Shown in the macOS menu bar, Dock and app switcher instead of "Electron".
 app.setName(appName())
 app.setAboutPanelOptions({ applicationName: '117Terminal', applicationVersion: app.getVersion() })
 const migratedKeys = isKeyExport() ? null : migrateBeforeReady()
+
+// 117terminal --serve [--port 7117] [--host 127.0.0.1] [--token …] [--open]
+function flag(name) {
+  const i = process.argv.findIndex((a) => a === `--${name}` || a.startsWith(`--${name}=`))
+  if (i === -1) return undefined
+  const a = process.argv[i]
+  return a.includes('=') ? a.slice(a.indexOf('=') + 1) : process.argv[i + 1]?.startsWith('--') ? true : process.argv[i + 1] ?? true
+}
+const serve = process.argv.includes('--serve')
+if (serve) {
+  // Own Chromium profile, so it can run next to the desktop app.
+  app.setPath('sessionData', path.join(app.getPath('userData'), 'serve-session'))
+  // No display (server, container, HarmonyOS Linux env): run Chromium headless.
+  if (process.platform === 'linux' && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
+    app.commandLine.appendSwitch('ozone-platform', 'headless')
+  }
+}
 
 // Window look (blur behind the window) survives restarts.
 const windowPrefsFile = () => path.join(app.getPath('userData'), 'window.json')
@@ -28,9 +45,7 @@ function windowPrefs() {
   }
 }
 
-const ptys = new Map()
 let mainWindow = null
-let executablesCache = null
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -68,15 +83,18 @@ function createWindow() {
   }
 
   // Reloading the renderer starts fresh sessions; drop the old shells.
+  const owner = `window:${mainWindow.webContents.id}`
   mainWindow.webContents.on('did-start-navigation', (details) => {
-    if (!details.isMainFrame || details.isSameDocument) return
-    for (const p of ptys.values()) p.kill()
-    ptys.clear()
+    if (details.isMainFrame && !details.isSameDocument) killOwner(owner)
   })
 
+  const contents = mainWindow.webContents
+  const off = addSink((channel, ...args) => {
+    if (!contents.isDestroyed()) contents.send(channel, ...args)
+  })
   mainWindow.on('closed', () => {
-    for (const p of ptys.values()) p.kill()
-    ptys.clear()
+    off()
+    killOwner(owner)
     mainWindow = null
   })
 }
@@ -133,120 +151,6 @@ function buildMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
 
-// ---- PTY ---------------------------------------------------------------
-
-ipcMain.handle('pty:create', (_e, { id, cols, rows, cwd }) => {
-  ptys.get(id)?.kill() // a renderer reload reuses session ids
-  const { shell, args, env, bracketedPaste } = prepareShell(app.getPath('userData'))
-  const startDir = cwd && fs.existsSync(cwd) ? cwd : os.homedir()
-  const p = pty.spawn(shell, args, {
-    name: 'xterm-256color',
-    cols: Math.max(cols || 80, 20),
-    rows: Math.max(rows || 24, 5),
-    cwd: startDir,
-    env
-  })
-  ptys.set(id, p)
-  p.onData((data) => send('pty:data', id, data))
-  p.onExit(({ exitCode }) => {
-    ptys.delete(id)
-    send('pty:exit', id, exitCode)
-  })
-  return { shell: path.basename(shell).replace(/\.exe$/i, ''), cwd: startDir, home: os.homedir(), bracketedPaste }
-})
-
-ipcMain.on('pty:write', (_e, id, data) => ptys.get(id)?.write(data))
-ipcMain.on('pty:resize', (_e, id, cols, rows) => {
-  try {
-    ptys.get(id)?.resize(Math.max(cols, 20), Math.max(rows, 5))
-  } catch {
-    /* pty already gone */
-  }
-})
-ipcMain.on('pty:kill', (_e, id) => {
-  ptys.get(id)?.kill()
-  ptys.delete(id)
-})
-
-// ---- Completion ----------------------------------------------------------
-
-function expandHome(p) {
-  return p === '~' || p.startsWith('~/') ? path.join(os.homedir(), p.slice(1)) : p
-}
-
-ipcMain.handle('complete:path', (_e, { cwd, token }) => {
-  try {
-    const expanded = expandHome(token)
-    const slash = expanded.lastIndexOf('/')
-    const dirPart = slash >= 0 ? expanded.slice(0, slash + 1) : ''
-    const prefix = slash >= 0 ? expanded.slice(slash + 1) : expanded
-    const dir = path.resolve(cwd || os.homedir(), dirPart || '.')
-    const shownDir = slash >= 0 ? token.slice(0, token.lastIndexOf('/') + 1) : ''
-    return fs
-      .readdirSync(dir, { withFileTypes: true })
-      .filter((d) => d.name.startsWith(prefix) && (prefix.startsWith('.') || !d.name.startsWith('.')))
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .slice(0, 200)
-      .map((d) => {
-        let isDir = d.isDirectory()
-        if (d.isSymbolicLink()) {
-          try {
-            isDir = fs.statSync(path.join(dir, d.name)).isDirectory()
-          } catch {
-            /* broken link */
-          }
-        }
-        return { value: shownDir + d.name + (isDir ? '/' : ''), label: d.name, kind: isDir ? 'dir' : 'file' }
-      })
-  } catch {
-    return []
-  }
-})
-
-ipcMain.handle('complete:executables', () => {
-  if (executablesCache) return executablesCache
-  const seen = new Set()
-  for (const dir of (process.env.PATH || '').split(path.delimiter)) {
-    try {
-      for (const name of fs.readdirSync(dir)) seen.add(name)
-    } catch {
-      /* unreadable dir */
-    }
-  }
-  executablesCache = [...seen].sort()
-  return executablesCache
-})
-
-// ---- History -------------------------------------------------------------
-
-const historyFile = () => path.join(app.getPath('userData'), 'history.json')
-
-ipcMain.handle('history:load', () => {
-  try {
-    return JSON.parse(fs.readFileSync(historyFile(), 'utf8'))
-  } catch {
-    /* first run: seed from zsh history */
-  }
-  try {
-    const raw = fs.readFileSync(path.join(os.homedir(), '.zsh_history'), 'latin1')
-    const items = raw
-      .split('\n')
-      .map((l) => l.replace(/^: \d+:\d+;/, '').trim())
-      .filter(Boolean)
-    return [...new Set(items.reverse())].reverse().slice(-2000)
-  } catch {
-    return []
-  }
-})
-
-ipcMain.on('history:save', (_e, items) => {
-  try {
-    fs.writeFileSync(historyFile(), JSON.stringify(items.slice(-5000)))
-  } catch {
-    /* ignore */
-  }
-})
-
 ipcMain.handle('window:prefs', () => windowPrefs())
 ipcMain.handle('window:blur', (_e, on) => {
   if (process.platform === 'darwin') mainWindow?.setVibrancy(on ? 'under-window' : null)
@@ -254,8 +158,6 @@ ipcMain.handle('window:blur', (_e, on) => {
   return windowPrefs()
 })
 
-ipcMain.on('clipboard:write', (_e, text) => clipboard.writeText(text))
-ipcMain.handle('app:info', () => ({ home: os.homedir(), platform: process.platform }))
 
 if (isKeyExport()) runKeyExport()
 else app.whenReady().then(() => {
@@ -263,18 +165,39 @@ else app.whenReady().then(() => {
   if (process.platform === 'darwin' && !app.isPackaged) app.dock?.setIcon(path.join(app.getAppPath(), 'build', 'icon.png'))
   if (migratedKeys) importKeys(migratedKeys)
   shellEnv() // warm the login-shell environment for brew/git/npx lookups
+  registerCoreIpc()
   registerZshIpc()
   registerMcpIpc()
   registerBrewcatIpc()
   registerMusicIpc()
-  registerVoiceIpc(() => mainWindow)
-  registerAiIpc(() => mainWindow)
+  registerVoiceIpc(() => broadcastWindow)
+  registerAiIpc(() => broadcastWindow)
+  if (serve) return startServe()
   buildMenu()
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
+
+async function startServe() {
+  app.dock?.hide()
+  const port = Number(flag('port')) || 7117
+  const host = typeof flag('host') === 'string' ? flag('host') : '127.0.0.1'
+  const token = typeof flag('token') === 'string' ? flag('token') : undefined
+  try {
+    const { url } = await startWebServer({ root: path.join(__dirname, '../renderer'), port, host, token })
+    console.log(`\n  117Terminal web is running.\n\n  Open: ${url}\n`)
+    if (host !== '127.0.0.1' && host !== 'localhost') {
+      console.log('  Listening on the network: anyone with this URL gets a shell on this machine. Keep the token secret.\n')
+    }
+    console.log('  Stop with Ctrl+C.\n')
+    if (flag('open')) electronShell.openExternal(url)
+  } catch (err) {
+    console.error(`117Terminal web could not start: ${err.message}`)
+    app.exit(1)
+  }
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()

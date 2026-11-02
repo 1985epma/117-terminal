@@ -173,6 +173,43 @@ out the command and **types it into the editor** — you review, then `↵`. Not
 
 ---
 
+## `$ 117terminal --serve` — HarmonyOS & any browser
+
+117Terminal can run **without a window** and serve its full UI — blocks, agent, voice, themes — to any web browser.
+That's how it runs on **HarmonyOS** (PC, tablet, phone), iPads, Chromebooks or a second computer.
+
+```bash
+117terminal --serve                       # http://127.0.0.1:7117/?token=…  (this machine only)
+117terminal --serve --host 0.0.0.0        # reachable from your LAN (HarmonyOS tablet/phone)
+117terminal --serve --port 8080 --open    # other port, open the browser for you
+```
+
+| where | the command is |
+|---|---|
+| macOS (Homebrew cask) | `117terminal --serve`, or `/Applications/117Terminal.app/Contents/MacOS/117Terminal --serve` |
+| Linux (deb / rpm / brew) | `117terminal --serve` (add `--no-sandbox` for the tar.gz) |
+| Windows | `117Terminal.exe --serve` from its install folder (Start menu → 117Terminal → *Open file location*) |
+
+**On a HarmonyOS PC** (ARM): HarmonyOS apps can't run Electron directly, but HarmonyOS PC ships a Linux environment
+(Huawei's *Converged Development Engine*, in preview). Inside it, unpack `117Terminal-X.Y.Z-linux-arm64.tar.gz`, run
+`./117terminal --serve --no-sandbox` (no display needed: it goes headless by itself) and open the printed
+`http://127.0.0.1:7117/?token=…` in the HarmonyOS browser.
+
+**From a HarmonyOS tablet or phone:** run `117terminal --serve --host 0.0.0.0` on your Mac/PC/Linux box and open
+`http://<that-computer's-IP>:7117/?token=…` on the device. The shell, the agent and the music deck run on that computer.
+
+> 🔐 **It's a shell, treat the URL like a password.** The server listens on `127.0.0.1` unless you pass `--host`, every
+> request needs the random token (kept in an `HttpOnly` cookie after the first visit), and loopback requests with a
+> foreign `Host` header are refused (no DNS rebinding). Only expose it on networks you trust; for anything wider, put
+> it behind a VPN or an HTTPS reverse proxy. Closing the browser tab ends its shells.
+
+<sub><code>// tested: desktop and phone-size browsers against a macOS server. HarmonyOS itself is untested (no device here).
+Voice in the browser needs a secure context: works on localhost, not over plain-HTTP LAN.</code></sub>
+
+In the browser, `⌘T`/`⌘W` belong to the browser, so tabs use **`⌥T` / `⌥W`**; the other shortcuts work as usual.
+
+---
+
 ## `$ /help`
 
 ```text
@@ -238,6 +275,7 @@ Every tag `vX.Y.Z` is built on GitHub Actions (macOS, Windows, Ubuntu) and publi
 | `117Terminal-X.Y.Z-linux-amd64.deb` | Debian, Ubuntu |
 | `117Terminal-X.Y.Z-linux-x86_64.rpm` | Fedora, RHEL, openSUSE |
 | `117Terminal-X.Y.Z-linux-x64.tar.gz` | any Linux x64 (portable) |
+| `117Terminal-X.Y.Z-linux-arm64.deb` · `-linux-aarch64.rpm` · `-linux-arm64.tar.gz` | Linux ARM64 (HarmonyOS PC Linux env, Raspberry Pi, ARM servers) |
 
 ```bash
 sha256sum -c SHA256SUMS.txt --ignore-missing   # verify what you downloaded
@@ -275,7 +313,8 @@ See [CHANGELOG.md](CHANGELOG.md).
 | platform | status | shells with blocks |
 |---|---|---|
 | macOS 13+ (Apple Silicon, Intel) | 🟢 main platform, tested | zsh, bash, fish |
-| Linux x64 (glibc ≈ Ubuntu 22.04 / Debian 12+) | 🟡 built and packaged in CI | zsh, bash, fish |
+| Linux x64 / arm64 (glibc ≈ Ubuntu 22.04 / Debian 12+) | 🟡 built and packaged in CI | zsh, bash, fish |
+| HarmonyOS · iPadOS · ChromeOS · any browser | 🟡 via `117terminal --serve` (web UI) | the server's shell |
 | Windows 10/11 x64 | 🟡 built in CI, block integration untested on real hardware | PowerShell (`pwsh` preferred) |
 
 The music deck is macOS-only. Everything else (blocks, agent, MCP, themes) is cross-platform.
@@ -294,7 +333,10 @@ src/
 │   ├── zsh-plugins.js       # plugin & prompt catalog → plugins.zsh
 │   ├── brewcat.js           # brewcat CLI bridge (--json)
 │   ├── music.js             # Spotify + Apple Music via AppleScript
-│   └── migrate.js           # one-time move from the old ETerm identity
+│   ├── migrate.js           # one-time move from the old ETerm identity
+│   ├── ipc.js · core.js     # one IPC registry + PTY core, shared by window and web
+│   └── web-server.js        # --serve: HTTP + WebSocket, token auth
+├── shared/eterm-api.js      # window.eterm, built from any transport (IPC or WebSocket)
 ├── preload/                 # the only door between UI and system
 .github/workflows/           # ci.yml (build on push) · release.yml (packages on tag)
 scripts/                     # adhoc-sign.cjs (macOS) · brand-dev.mjs
