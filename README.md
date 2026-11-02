@@ -13,7 +13,7 @@
 
 **`>_ JACK IN. RUN BLOCKS. LET THE AGENT WORK THE GRID.`**
 
-<sub><code>// a block-based terminal for netrunners · forged by 117-Labs · React + Electron · macOS</code></sub>
+<sub><code>// a block-based terminal for netrunners · forged by 117-Labs · React + Electron · macOS · Windows · Linux</code></sub>
 
 <br />
 
@@ -31,6 +31,7 @@
 [ 0.044] xterm.js parser ................................... OK
 [ 0.058] agent uplink: claude · gpt · gemini · grok · ollama  STANDBY
 [ 0.071] mcp bus ........................................... STANDBY
+[ 0.076] voice link: en-US · pt-BR · es ..................... ARMED
 [ 0.080] theme: BLACK NINJA DARK (#000000) ................. LOADED
 [ 0.093] >>> welcome back, runner.
 ```
@@ -43,7 +44,7 @@ The city never sleeps and neither does your shell. **117Terminal** splits the en
 command gets its own capsule with cwd, git branch, runtime and exit code. Failures glow red. Then type `#` and hand the
 grid to an **AI agent** that proposes commands, waits for your go, runs them as real blocks and reads the output back.
 
-It speaks **your** zsh: your `.zshrc`, your aliases, Powerlevel10k, plugins installed with one switch. All wrapped in pure
+Or just **talk to it** — in English, Português or Español — and it types the command for you. It speaks **your** zsh: your `.zshrc`, your aliases, Powerlevel10k, plugins installed with one switch. All wrapped in pure
 `#000` black with crimson neon.
 
 <div align="center">
@@ -143,6 +144,32 @@ Spotify and Apple Music, driven by AppleScript. **No API keys, no login**, and p
 `⌥⌘P` play/pause · `⌥⌘← ⌥⌘→` previous/next · `/music <song>` plays the best match from your Apple Music library ·
 `/spotify <link>` plays a Spotify URL. Want it fully in the terminal? Install `spotify_player`, `ncspot` or `shpotify`
 from the panel.
+
+---
+
+## `$ talk --voice` &nbsp;<sub>`⌘⇧Space`</sub>
+
+Hit **`⌘⇧Space`** or the 🎙 at the top right, say what you want, pause. 117Terminal stops listening on its own, works
+out the command and **types it into the editor** — you review, then `↵`. Nothing runs by itself.
+
+| you say | language | it types |
+|---|---|---|
+| *"show me the git status"* | 🇺🇸 English (US) | `git status` |
+| *"listar todos os arquivos ocultos desta pasta"* | 🇧🇷 Português (BR) | `ls -d .*` |
+| *"crear una carpeta llamada pruebas"* | 🇪🇸 Español | `mkdir pruebas` |
+
+<sub><code>// real results from the test run: macOS voices → Gemini Flash → command</code></sub>
+
+- **Languages:** English (US), Português (BR), Español, or auto-detect. The chip next to the mic cycles them.
+- **Modes:** *Understand* turns speech into a command (multi-step requests jump to Agent Mode); *Dictate* types
+  exactly what you said. In Agent Mode your words become the agent prompt.
+- **Engines:** your active AI provider when it can hear (Gemini, OpenAI, Groq), or **local Whisper** (whisper.cpp)
+  for fully offline, private voice — one click to install it and download the model.
+- **Privacy:** audio is captured only while the mic is red and sent only to the engine you picked.
+
+<div align="center">
+<img src="docs/screenshots/voice.png" width="880" alt="Voice settings: language, Understand or Dictate mode, speech engine; mic button and language chip at the top right" />
+</div>
 
 ---
 
