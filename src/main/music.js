@@ -72,9 +72,8 @@ end tell`)
   return url
 }
 
-async function statusOf(id) {
-  if (!installed(id)) return { id, installed: false, state: 'missing' }
-  const r = await osa(statusScript(id))
+// Turns one app's status-script output into the state the renderer shows.
+async function parseStatus(id, r) {
   if (!r.ok) return { id, installed: true, state: 'error', error: /not allowed|-1743/i.test(r.error) ? 'permission' : r.error }
   if (r.out === 'closed' || r.out === 'stopped') return { id, installed: true, state: r.out }
   const [state, title, artist, album, position, duration, artwork, volume, shuffle, trackId] = r.out.split(SEP)
@@ -94,6 +93,28 @@ async function statusOf(id) {
   }
   if (id === 'music' && trackId) s.artwork = await musicArtwork(trackId)
   return s
+}
+
+async function statusOf(id) {
+  if (!installed(id)) return { id, installed: false, state: 'missing' }
+  return parseStatus(id, await osa(statusScript(id)))
+}
+
+// Both players in one osascript run (one process per poll instead of two). If that
+// fails (e.g. Automation permission denied for one app), ask each app on its own.
+const RS = '\u001e'
+async function statusAll() {
+  const ids = ['spotify', 'music'].filter(installed)
+  if (ids.length < 2) return Object.fromEntries(await Promise.all(['spotify', 'music'].map(async (id) => [id, await statusOf(id)])))
+  const handlers = ids.map((id) => `on status_${id}()\n${statusScript(id)}\nend status_${id}`).join('\n')
+  const r = await osa(`${handlers}\nreturn ${ids.map((id) => `status_${id}()`).join(` & "${RS}" & `)}`)
+  const parts = r.ok ? r.out.split(RS) : []
+  if (parts.length !== 2) {
+    const [spotify, music] = await Promise.all([statusOf('spotify'), statusOf('music')])
+    return { spotify, music }
+  }
+  const [spotify, music] = await Promise.all(ids.map((id, i) => parseStatus(id, { ok: true, out: parts[i] })))
+  return { spotify, music }
 }
 
 const COMMANDS = {
@@ -169,10 +190,7 @@ end tell`,
 }
 
 export function registerMusicIpc() {
-  ipcMain.handle('music:status', async () => {
-    const [spotify, music] = await Promise.all([statusOf('spotify'), statusOf('music')])
-    return { spotify, music }
-  })
+  ipcMain.handle('music:status', () => statusAll())
 
   ipcMain.handle('music:control', (_e, id, action, value) => control(id, action, value))
 

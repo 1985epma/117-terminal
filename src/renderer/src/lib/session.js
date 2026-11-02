@@ -57,6 +57,7 @@ export class Block {
   }
 
   get html() {
+    if (this.frozen) return this._html
     if (this._htmlVersion !== this.version) {
       this._html = this.serializer.toHtml()
       this._htmlVersion = this.version
@@ -65,24 +66,38 @@ export class Block {
   }
 
   get text() {
-    return this.serializer.toText()
+    return this.frozen ? this._text : this.serializer.toText()
   }
 
   // Text of the row the cursor is on (used to spot password prompts).
   lastLine() {
+    if (this.frozen) return ''
     const buf = this.term.buffer.active
     return buf.getLine(buf.baseY + buf.cursorY)?.translateToString(true) || ''
   }
 
   resize(cols, rows) {
-    if (cols === this.term.cols && rows === this.term.rows) return
+    if (this.frozen || (cols === this.term.cols && rows === this.term.rows)) return
     this.term.resize(cols, rows)
     this.serializer.reset()
     this.version++
   }
 
-  dispose() {
+  // A finished block keeps only its rendered HTML and text and frees the xterm instance
+  // (each one reserves room for 20,000 lines). Output is stored as logical lines, so it
+  // still wraps to any width without the terminal.
+  freeze() {
+    if (this.frozen) return
+    this._html = this.serializer.toHtml()
+    this._text = this.serializer.toText()
     this.term.dispose()
+    this.term = null
+    this.serializer = null
+    this.frozen = true
+  }
+
+  dispose() {
+    this.term?.dispose()
   }
 }
 
@@ -396,8 +411,10 @@ export class Session {
     if (this.rawBlock === block) this.rawBlock = null
     // Let xterm finish parsing queued output before handing the block over.
     block.term.write('', () => {
+      block.freeze()
       const i = this.waiters.findIndex((w) => w.block === block)
       if (i !== -1) this.waiters.splice(i, 1)[0].resolve(block)
+      this._emit()
     })
   }
 }

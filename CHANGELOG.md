@@ -41,6 +41,11 @@ All notable changes to 117Terminal. Versions follow [SemVer](https://semver.org)
   Keychain back on in Settings › AI Agent.
 
 ### Fixed
+- **Memory**: a finished command keeps only its rendered output and frees its terminal emulator. 300 commands now
+  use 10 MB of JS heap instead of 55 MB, and five 100,000-line outputs 12 MB instead of 83 MB. See `PERF.md`.
+- **Music player polling**: one `osascript` per poll for Spotify and Apple Music together, no polling while the window
+  is hidden, and every 15 s when no player is open: 14 → 6 calls per 30 s visible, 14 → 1 hidden. A control click during
+  a poll could also start a second polling loop.
 - **Linux x86_64 packages did not run on current distros.** CI built them on `ubuntu-latest`, now Ubuntu 26.04, so the
   terminal's native module required glibc 2.42 and failed on Ubuntu 22.04/24.04, Debian 12 and Fedora 41
   (`GLIBC_2.42 not found`). Linux packages are now built on Ubuntu 22.04 (glibc 2.35), and the release fails if a native
