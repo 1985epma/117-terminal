@@ -5,6 +5,10 @@ All notable changes to 117Terminal. Versions follow [SemVer](https://semver.org)
 ## [Unreleased]
 
 ### Added
+- **One-line Linux installer** (`install.sh`): installs the required libraries first, then the `.deb` or `.rpm` for the
+  machine's CPU after checking it against `SHA256SUMS.txt`. Picks the right package names on old and new releases
+  (`libgtk-3-0`/`libgtk-3-0t64`, `libasound2`/`libasound2t64`). `--user` installs the portable build in `~/.local`
+  without sudo; `--dry-run` only prints the steps. Works with already published releases, including 0.1.3.
 - **Open folders in 117Terminal**: Finder's *Open With › 117Terminal*, dropping a folder or file on the Dock icon, or
   `117terminal <dir>` opens a new tab there. With the app already running, `117terminal <dir>` adds a tab to it.
 - The window reopens where you left it, at the same size (or maximized). If that spot is on a display that is gone, it

@@ -263,12 +263,23 @@ Homebrew needs the [tap](https://github.com/1985epma/homebrew-117terminal) trust
 brew tap 1985epma/117terminal && brew trust 1985epma/117terminal
 ```
 
+**Linux, one line** — installs the libraries 117Terminal needs (`libgbm1`, `libasound2`, GTK…) first, then the right
+`.deb`/`.rpm` for your CPU, after checking its SHA-256:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/1985epma/117-terminal/main/install.sh | bash
+```
+
+Debian 12, Ubuntu 22.04/24.04 and Fedora 41 tested. Add `-s -- --user` after `bash` for a no-sudo install in
+`~/.local`, `--version X.Y.Z` for a specific release, or `--dry-run` to see what it would do. Read it first:
+[`install.sh`](install.sh).
+
 | system | command |
 |---|---|
 | 🍎 macOS (Homebrew) | `brew install --cask 1985epma/117terminal/117terminal` |
 | 🐧 Linux (Homebrew) | `brew install 1985epma/117terminal/117terminal` |
-| 🐧 Debian / Ubuntu | download the `.deb`, then `sudo apt install ./117Terminal-*.deb` |
-| 🐧 Fedora / RHEL / openSUSE | download the `.rpm`, then `sudo dnf install ./117Terminal-*.rpm` |
+| 🐧 Debian / Ubuntu | `install.sh` above, or download the `.deb`, then `sudo apt install ./117Terminal-*.deb` |
+| 🐧 Fedora / RHEL | `install.sh` above, or download the `.rpm`, then `sudo dnf install ./117Terminal-*.rpm` |
 | 🪟 Windows (winget) | `winget install 1985epma.117Terminal` — *[in review](https://github.com/microsoft/winget-pkgs/pull/468426), live once Microsoft approves* |
 | 🪟 Windows | download the `.msi` and run it (uses PowerShell; `pwsh` if installed) |
 
