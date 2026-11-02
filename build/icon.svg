@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- 117Terminal: the 117-Labs mark (3x3 dots) at a prompt inside a terminal window.
+       Tokens from the 117-Labs design system (dark): bg #03050a, card #0a0c11,
+       line #262a33, mark #8fa3d6, cyan #5ee0ff, blue #4a7bff. -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#11141c"/>
+      <stop offset="1" stop-color="#03050a"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0a0c11"/>
+      <stop offset="1" stop-color="#070910"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.62" r="0.55">
+      <stop offset="0" stop-color="#2f62f0" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#2f62f0" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- App tile (macOS icon grid: 824px body with 100px margins) -->
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#tile)"/>
+  <rect x="101.5" y="101.5" width="821" height="821" rx="183.5" fill="none" stroke="#262a33" stroke-width="3"/>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#glow)"/>
+
+  <!-- Terminal window -->
+  <rect x="190" y="230" width="644" height="564" rx="44" fill="url(#screen)" stroke="#262a33" stroke-width="6"/>
+  <path d="M190 312 H834" stroke="#1a1d24" stroke-width="6"/>
+  <circle cx="246" cy="271" r="13" fill="#ff5f57"/>
+  <circle cx="290" cy="271" r="13" fill="#febc2e"/>
+  <circle cx="334" cy="271" r="13" fill="#28c840"/>
+
+  <!-- Prompt chevron -->
+  <path d="M262 452 L336 512 L262 572" fill="none" stroke="#5ee0ff" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- 117-Labs mark: 3x3 dots (brand-mark.svg geometry, scaled 11x) -->
+  <g transform="translate(398 402) scale(11)" fill="#8fa3d6">
+    <circle cx="3.5" cy="3.5" r="1.7"/><circle cx="10" cy="3.5" r="1.7"/><circle cx="16.5" cy="3.5" r="1.7"/>
+    <circle cx="3.5" cy="10" r="1.7"/><circle cx="10" cy="10" r="1.7"/><circle cx="16.5" cy="10" r="1.7"/>
+    <circle cx="3.5" cy="16.5" r="1.7"/><circle cx="10" cy="16.5" r="1.7"/><circle cx="16.5" cy="16.5" r="1.7"/>
+  </g>
+
+  <!-- Cursor -->
+  <rect x="660" y="572" width="96" height="26" rx="6" fill="#5ee0ff"/>
+
+  <!-- 117 label in the window footer -->
+  <text x="512" y="742" text-anchor="middle" font-family="JetBrains Mono, SF Mono, Menlo, monospace" font-weight="600" font-size="60" letter-spacing="6" fill="#4b5365">117</text>
+</svg>

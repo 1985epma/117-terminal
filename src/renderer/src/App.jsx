@@ -1,0 +1,299 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Session } from './lib/session.js'
+import { themes, applyTheme, DEFAULT_THEME } from './lib/themes.js'
+import TabBar from './components/TabBar.jsx'
+import TerminalView from './components/TerminalView.jsx'
+import CommandPalette from './components/CommandPalette.jsx'
+import HistorySearch from './components/HistorySearch.jsx'
+import AgentSettings from './components/AgentSettings.jsx'
+import ThemePicker from './components/ThemePicker.jsx'
+import ExtensionsPanel from './components/extensions/ExtensionsPanel.jsx'
+import MusicPanel from './components/music/MusicPanel.jsx'
+import { music } from './lib/music.js'
+
+const DEFAULT_FONT = 13
+
+function loadSettings() {
+  try {
+    const saved = { theme: DEFAULT_THEME, fontSize: DEFAULT_FONT, opacity: 1, showPrompt: false, ...JSON.parse(localStorage.getItem('eterm:settings') || '{}') }
+    if (!themes[saved.theme]) saved.theme = DEFAULT_THEME
+    return saved
+  } catch {
+    return { theme: DEFAULT_THEME, fontSize: DEFAULT_FONT, opacity: 1, showPrompt: false }
+  }
+}
+
+export default function App() {
+  const [sessions, setSessions] = useState(() => [new Session()])
+  const [activeId, setActiveId] = useState(() => sessions[0].id)
+  const [settings, setSettings] = useState(loadSettings)
+  const [overlay, setOverlay] = useState(null) // 'palette' | 'history' | 'agent' | 'themes' | 'extensions:<tab>' | null
+  const [blur, setBlur] = useState(true)
+  const [, force] = useState(0)
+  const views = useRef(new Map()) // session id -> TerminalView imperative api
+
+  const active = sessions.find((s) => s.id === activeId) || sessions[0]
+  window.__eterm = { sessions, active } // handy for DevTools debugging
+
+  useEffect(() => {
+    applyTheme(settings.theme, settings.fontSize, settings.opacity)
+    try {
+      localStorage.setItem('eterm:settings', JSON.stringify(settings))
+    } catch {
+      /* storage unavailable */
+    }
+  }, [settings])
+
+  // Re-render tab titles when any session changes.
+  useEffect(() => {
+    const offs = sessions.map((s) => s.subscribe(() => force((n) => n + 1)))
+    return () => offs.forEach((off) => off())
+  }, [sessions])
+
+  useEffect(() => {
+    window.eterm.window.prefs().then((p) => setBlur(p.blur))
+  }, [])
+
+  // Runs a command from a panel as a visible block in the active tab.
+  const runInTerminal = (cmd) => {
+    setOverlay(null)
+    active.mode = 'shell'
+    active.runAndWait(cmd).catch(() => {})
+    focusInput()
+  }
+
+  // Controls whichever player is active (Spotify if nothing is).
+  const musicCommand = (action) => music.control(music.active()?.id || 'spotify', action)
+
+  const newTab = useCallback(() => {
+    const s = new Session({ cwd: active?.cwd })
+    setSessions((prev) => [...prev, s])
+    setActiveId(s.id)
+  }, [active])
+
+  const closeTab = useCallback(
+    (id = activeId) => {
+      const idx = sessions.findIndex((s) => s.id === id)
+      if (idx === -1) return
+      sessions[idx].dispose()
+      let next = sessions.filter((s) => s.id !== id)
+      if (next.length === 0) next = [new Session()]
+      setSessions(next)
+      if (!next.some((s) => s.id === activeId)) setActiveId(next[Math.min(idx, next.length - 1)].id)
+    },
+    [sessions, activeId]
+  )
+
+  const cycleTab = useCallback(
+    (dir) => {
+      const idx = sessions.findIndex((s) => s.id === activeId)
+      const next = sessions[(idx + dir + sessions.length) % sessions.length]
+      setActiveId(next.id)
+    },
+    [sessions, activeId]
+  )
+
+  const setFont = (fn) => setSettings((s) => ({ ...s, fontSize: Math.min(24, Math.max(9, fn(s.fontSize))) }))
+
+  const focusInput = () => setTimeout(() => views.current.get(activeId)?.focus(), 0)
+
+  const actions = useMemo(
+    () => [
+      { id: 'newTab', label: 'New Tab', hint: '⌘T', run: newTab },
+      { id: 'closeTab', label: 'Close Tab', hint: '⌘W', run: () => closeTab() },
+      { id: 'nextTab', label: 'Next Tab', hint: '⌘⇧]', run: () => cycleTab(1) },
+      { id: 'prevTab', label: 'Previous Tab', hint: '⌘⇧[', run: () => cycleTab(-1) },
+      { id: 'clear', label: 'Clear Blocks', hint: '⌘K', run: () => active.clear() },
+      { id: 'history', label: 'Search Command History', hint: '⌃R', run: () => setOverlay('history') },
+      {
+        id: 'agentMode',
+        label: 'Toggle Agent Mode',
+        hint: '⌘I',
+        run: () => {
+          active.mode = active.mode === 'agent' ? 'shell' : 'agent'
+          active._emit()
+        }
+      },
+      {
+        id: 'agentReset',
+        label: 'New Agent Conversation',
+        hint: '⌘⇧I',
+        run: () => {
+          active.agent.reset()
+          active.mode = 'agent'
+          active._emit()
+        }
+      },
+      { id: 'agentSettings', label: 'Agent Settings: Connect AI Providers', hint: '⌘,', run: () => setOverlay('agent') },
+      { id: 'interrupt', label: 'Interrupt Running Command', hint: '⌃C', run: () => active.interrupt() },
+      { id: 'themes', label: 'Themes & Transparency…', hint: '⌥⌘T', run: () => setOverlay('themes') },
+      { id: 'music', label: 'Music: Spotify & Apple Music…', hint: '⌥⌘M', run: () => setOverlay('music') },
+      { id: 'music:playpause', label: 'Music: Play / Pause', hint: '⌥⌘P', run: () => musicCommand('playpause') },
+      { id: 'music:next', label: 'Music: Next Track', hint: '⌥⌘→', run: () => musicCommand('next') },
+      { id: 'music:previous', label: 'Music: Previous Track', hint: '⌥⌘←', run: () => musicCommand('previous') },
+      { id: 'extensions', label: 'Extensions: Zsh Plugins', hint: '⌘⇧X', run: () => setOverlay('extensions:zsh') },
+      { id: 'extensions:prompt', label: 'Extensions: Prompt (Powerlevel10k, Starship…)', hint: '/prompt', run: () => setOverlay('extensions:prompt') },
+      { id: 'extensions:mcp', label: 'Extensions: MCP Servers', hint: '/mcp', run: () => setOverlay('extensions:mcp') },
+      { id: 'extensions:brewcat', label: 'Extensions: brewcat (Homebrew catalog)', hint: '/brewcat', run: () => setOverlay('extensions:brewcat') },
+      {
+        id: 'togglePrompt',
+        label: settings.showPrompt ? 'Hide My Zsh Prompt (PS1)' : 'Show My Zsh Prompt (PS1)',
+        run: () => setSettings((s) => ({ ...s, showPrompt: !s.showPrompt }))
+      },
+      { id: 'fontUp', label: 'Bigger Text', hint: '⌘=', run: () => setFont((f) => f + 1) },
+      { id: 'fontDown', label: 'Smaller Text', hint: '⌘-', run: () => setFont((f) => f - 1) },
+      { id: 'fontReset', label: 'Reset Text Size', hint: '⌘0', run: () => setFont(() => DEFAULT_FONT) },
+      ...Object.entries(themes).map(([key, t]) => ({
+        id: `theme:${key}`,
+        label: `Theme: ${t.name}`,
+        hint: settings.theme === key ? 'active' : '',
+        run: () => setSettings((s) => ({ ...s, theme: key }))
+      }))
+    ],
+    [newTab, closeTab, cycleTab, active, settings.theme, settings.showPrompt]
+  )
+
+  const runAction = useCallback(
+    (id) => {
+      if (id === 'palette') return setOverlay((o) => (o === 'palette' ? null : 'palette'))
+      const a = actions.find((x) => x.id === id)
+      // Slash commands can open any Extensions tab directly (extensions:<tab>).
+      if (!a) return (id.startsWith('extensions:') || id.startsWith('music-panel:')) && setOverlay(id.replace('music-panel:', 'music:'))
+      a.run()
+      if (!['history', 'agentSettings', 'themes', 'music'].includes(id) && !id.startsWith('extensions')) focusInput()
+    },
+    [actions] // eslint-disable-line react-hooks/exhaustive-deps
+  )
+
+  const runActionRef = useRef(runAction)
+  runActionRef.current = runAction
+  useEffect(() => window.eterm.onMenu((id) => runActionRef.current(id)), [])
+  // In-app triggers (e.g. slash commands) use the same action ids as the menu.
+  useEffect(() => {
+    const on = (e) => runActionRef.current(e.detail)
+    window.addEventListener('eterm-action', on)
+    return () => window.removeEventListener('eterm-action', on)
+  }, [])
+
+  // Cmd+1..9 jumps to tab.
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.metaKey && /^[1-9]$/.test(e.key)) {
+        const s = sessions[Number(e.key) - 1]
+        if (s) {
+          e.preventDefault()
+          setActiveId(s.id)
+        }
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [sessions])
+
+  useEffect(() => {
+    focusInput()
+  }, [activeId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <div className="app">
+      <TabBar
+        sessions={sessions}
+        activeId={activeId}
+        onSelect={setActiveId}
+        onClose={closeTab}
+        onNew={newTab}
+        onPalette={() => setOverlay('palette')}
+        onMusic={() => setOverlay('music')}
+      />
+      <div className="views">
+        {sessions.map((s) => (
+          <TerminalView
+            key={s.id}
+            session={s}
+            active={s.id === activeId}
+            theme={settings.theme}
+            fontSize={settings.fontSize}
+            opacity={settings.opacity}
+            showPrompt={settings.showPrompt}
+            ref={(api) => (api ? views.current.set(s.id, api) : views.current.delete(s.id))}
+            onOpenHistory={() => setOverlay('history')}
+            onOpenSettings={() => setOverlay('agent')}
+          />
+        ))}
+      </div>
+
+      {overlay === 'palette' && (
+        <CommandPalette
+          actions={actions}
+          onClose={() => {
+            setOverlay(null)
+            focusInput()
+          }}
+          onRun={(id) => {
+            setOverlay(null)
+            runAction(id)
+          }}
+        />
+      )}
+      {overlay === 'themes' && (
+        <ThemePicker
+          current={settings.theme}
+          opacity={settings.opacity}
+          onOpacity={(opacity) => setSettings((s) => ({ ...s, opacity }))}
+          blur={blur}
+          onBlur={async (on) => setBlur((await window.eterm.window.blur(on)).blur)}
+          onPick={(key) => setSettings((s) => ({ ...s, theme: key }))}
+          onClose={() => {
+            setOverlay(null)
+            focusInput()
+          }}
+        />
+      )}
+      {overlay?.startsWith('extensions:') && (
+        <ExtensionsPanel
+          initialTab={overlay.split(':')[1]}
+          onClose={() => {
+            setOverlay(null)
+            focusInput()
+          }}
+          onRunInTerminal={runInTerminal}
+          showPrompt={settings.showPrompt}
+          onShowPromptChange={(on) => setSettings((s) => ({ ...s, showPrompt: on }))}
+        />
+      )}
+      {(overlay === 'music' || overlay?.startsWith('music:')) && (
+        <MusicPanel
+          initialSource={overlay.split(':')[1]}
+          onClose={() => {
+            setOverlay(null)
+            focusInput()
+          }}
+          onRunInTerminal={runInTerminal}
+        />
+      )}
+      {overlay === 'agent' && (
+        <AgentSettings
+          onClose={() => {
+            setOverlay(null)
+            focusInput()
+          }}
+        />
+      )}
+      {overlay === 'history' && (
+        <HistorySearch
+          onClose={() => {
+            setOverlay(null)
+            focusInput()
+          }}
+          onPick={(cmd, runNow) => {
+            setOverlay(null)
+            const view = views.current.get(activeId)
+            if (runNow) active.run(cmd)
+            else view?.setInput(cmd)
+            focusInput()
+          }}
+        />
+      )}
+    </div>
+  )
+}

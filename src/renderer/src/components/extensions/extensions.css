@@ -1,0 +1,755 @@
+/* ---------- Extensions panel (zsh plugins, prompt, MCP, brewcat) ---------- */
+.ext-panel {
+  width: min(1000px, calc(100% - 32px));
+  height: min(680px, calc(100vh - 100px));
+  /* The window may be translucent; keep the panel readable. */
+  background: var(--solid, var(--panel));
+}
+.overlay:has(> .ext-panel) {
+  padding-top: max(50px, calc((100vh - 680px) / 2));
+}
+.ext-panel .settings-side {
+  width: 230px;
+  background: var(--solid-bg, var(--bg));
+}
+.ext-nav {
+  align-items: flex-start;
+  padding: 8px 10px;
+}
+.ext-nav-icon {
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 18px;
+}
+.ext-nav.sel .ext-nav-icon {
+  color: var(--accent2);
+}
+.ext-nav-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.ext-nav-text b {
+  font-weight: 600;
+}
+.ext-nav-text small {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ext-side-foot {
+  margin-top: auto;
+  padding: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.ext-main {
+  padding: 22px 28px 28px;
+}
+.ext-tab {
+  max-width: 720px;
+}
+.ext-tab .pf-head {
+  padding-right: 30px;
+}
+.ext-head-btn {
+  margin-left: auto;
+}
+.ext-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  padding: 40px 0;
+  justify-content: center;
+}
+
+/* Sections & rows */
+.ext-section {
+  margin-top: 20px;
+}
+.ext-section h3 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.ext-section h3 .ext-btn {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+}
+.ext-list {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.ext-list:empty {
+  display: none;
+}
+.ext-list.gap {
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ext-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--raised) 45%, transparent);
+  transition: background 0.12s;
+}
+.ext-row + .ext-row {
+  border-top: 1px solid var(--border);
+}
+.ext-row:hover {
+  background: var(--raised);
+}
+.ext-row.on {
+  box-shadow: inset 3px 0 0 var(--accent2);
+}
+.ext-row-body {
+  flex: 1;
+  min-width: 0;
+}
+.ext-row-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.ext-row-side {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  min-height: 22px;
+}
+.ext-name {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--fg);
+}
+.ext-desc {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+  margin-top: 3px;
+}
+.ext-tag {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  text-transform: lowercase;
+}
+.ext-tag.hot {
+  border-color: transparent;
+  color: var(--warn, var(--accent));
+  background: color-mix(in srgb, var(--warn, var(--accent)) 14%, transparent);
+}
+.ext-tag.ok {
+  border-color: transparent;
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+}
+.ext-tag.cask {
+  color: var(--accent2);
+  border-color: color-mix(in srgb, var(--accent2) 40%, var(--border));
+}
+.ext-cat {
+  font-size: 11px;
+  color: var(--muted);
+}
+.ext-note {
+  color: var(--muted);
+  font-size: 11.5px;
+  margin-top: 5px;
+  line-height: 1.5;
+}
+.ext-note.center {
+  text-align: center;
+  margin-top: 10px;
+}
+.ext-note code,
+.ext-footnote code,
+.ext-tools code {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg);
+}
+.ext-err {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--err);
+  word-break: break-word;
+}
+.ext-install {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 8px;
+}
+.ext-install .ext-note {
+  margin-top: 0;
+}
+.ext-empty {
+  color: var(--muted);
+  text-align: center;
+  padding: 18px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  font-size: 12.5px;
+}
+.ext-footnote {
+  margin-top: 22px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+.ext-path {
+  margin-top: 4px;
+  opacity: 0.85;
+  word-break: break-all;
+}
+.ext-pre {
+  margin: 6px 0 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  white-space: pre-wrap;
+  max-height: 120px;
+  overflow: auto;
+}
+
+/* Buttons & inputs */
+.ext-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--fg);
+  border-radius: 7px;
+  font-size: 12.5px;
+  padding: 6px 12px;
+  white-space: nowrap;
+  transition: border-color 0.12s, background 0.12s;
+}
+.ext-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+.ext-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.ext-btn.small {
+  font-size: 11.5px;
+  padding: 3px 9px;
+  border-radius: 6px;
+}
+.ext-btn.primary-ish {
+  margin-top: 10px;
+  color: var(--accent2);
+  border-color: color-mix(in srgb, var(--accent2) 50%, var(--border));
+}
+.ext-btn.danger {
+  color: var(--err);
+  border-color: color-mix(in srgb, var(--err) 50%, var(--border));
+}
+.ext-linkbtn {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 12px;
+  color: var(--accent);
+}
+.ext-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.ext-search {
+  flex: 1;
+  font: inherit;
+  font-size: 12.5px;
+  padding: 7px 11px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--solid-bg, var(--bg));
+  color: var(--fg);
+  outline: none;
+}
+.ext-search:focus {
+  border-color: var(--accent2);
+}
+.ext-panel .field textarea,
+.ext-panel .field select {
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  padding: 8px 11px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--solid-bg, var(--bg));
+  color: var(--fg);
+  outline: none;
+  resize: vertical;
+}
+.ext-panel .field input {
+  background: var(--solid-bg, var(--bg));
+}
+.ext-panel .field textarea:focus,
+.ext-panel .field select:focus {
+  border-color: var(--accent2);
+}
+
+/* Switch */
+.ext-switch {
+  position: relative;
+  display: inline-block;
+  width: 32px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.ext-switch input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+.ext-switch input:disabled {
+  cursor: default;
+}
+.ext-switch span {
+  position: absolute;
+  inset: 0;
+  border-radius: 99px;
+  background: var(--border);
+  transition: background 0.15s;
+}
+.ext-switch span::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--fg);
+  opacity: 0.85;
+  transition: transform 0.15s;
+}
+.ext-switch input:checked + span {
+  background: var(--accent2);
+}
+.ext-switch input:checked + span::after {
+  transform: translateX(14px);
+  background: var(--solid-bg, var(--bg));
+  opacity: 1;
+}
+.ext-switch input:disabled + span {
+  opacity: 0.55;
+}
+.ext-switch input:focus-visible + span {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent2) 45%, transparent);
+}
+.ext-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--raised) 45%, transparent);
+  cursor: pointer;
+  margin-bottom: 4px;
+}
+.ext-option > span:nth-child(2) {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+.ext-option b {
+  font-weight: 600;
+}
+.ext-option small {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.ext-option.big {
+  padding: 14px 16px;
+  margin-bottom: 18px;
+}
+.ext-option.big b {
+  font-size: 13.5px;
+}
+.ext-option.big.on {
+  border-color: color-mix(in srgb, var(--accent2) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent2) 9%, transparent);
+}
+.ext-inline-switch {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.ext-inline-switch .ext-switch {
+  transform: scale(0.85);
+}
+
+/* Chips (presets, profiles, doctor checks) */
+.ext-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ext-chips.doctor {
+  margin-bottom: 14px;
+}
+.ext-chips.profiles {
+  margin-bottom: 4px;
+}
+.ext-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 4px 11px;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--fg);
+  transition: border-color 0.12s, background 0.12s;
+}
+.ext-chip:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+.ext-chip:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.ext-chip small {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.ext-chip.sel {
+  border-color: var(--accent2);
+  background: color-mix(in srgb, var(--accent2) 16%, transparent);
+}
+.ext-check {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 99px;
+  cursor: default;
+}
+.ext-check.ok {
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
+}
+.ext-check.warn {
+  color: var(--warn, var(--err));
+  background: color-mix(in srgb, var(--warn, var(--err)) 14%, transparent);
+  cursor: help;
+}
+.ext-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Prompt cards */
+.ext-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+.ext-card {
+  border: 1px solid var(--border);
+  background: var(--raised);
+  border-radius: 12px;
+  padding: 8px 8px 12px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.12s, transform 0.12s;
+}
+.ext-card:hover,
+.ext-card:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--border));
+  transform: translateY(-1px);
+}
+.ext-card.current {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
+  cursor: default;
+}
+.ext-card.disabled {
+  cursor: default;
+}
+.ext-card.disabled .ext-sample {
+  opacity: 0.6;
+}
+.ext-card > :not(.ext-sample) {
+  margin-left: 4px;
+  margin-right: 4px;
+}
+.ext-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  margin-top: 9px;
+}
+.ext-sample {
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: pre;
+  padding: 8px 10px;
+  min-height: 48px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--solid-bg, var(--bg));
+  overflow: hidden;
+}
+.ext-sample .s-muted {
+  color: var(--muted);
+}
+.ext-sample .s-accent {
+  color: var(--accent);
+  font-weight: 600;
+}
+.ext-sample .s-accent2 {
+  color: var(--accent2);
+}
+.ext-sample .s-ok {
+  color: var(--ok);
+}
+.ext-sample .s-seg1,
+.ext-sample .s-seg2 {
+  color: var(--solid-bg, var(--bg));
+  background: var(--accent);
+  border-radius: 3px 0 0 3px;
+}
+.ext-sample .s-seg2 {
+  background: var(--accent2);
+  border-radius: 0 3px 3px 0;
+}
+
+/* MCP servers */
+.ext-server {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--raised) 45%, transparent);
+}
+.ext-section > .ext-server {
+  margin-bottom: 8px;
+}
+.ext-server.off {
+  opacity: 0.7;
+}
+.ext-server .pf-status {
+  margin: 8px 0 0;
+}
+.ext-server-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ext-server-status {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.ext-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  flex-shrink: 0;
+}
+.ext-dot.connected {
+  background: var(--ok);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 25%, transparent);
+}
+.ext-dot.error {
+  background: var(--err);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--err) 25%, transparent);
+}
+.ext-dot.connecting {
+  background: var(--warn, var(--accent));
+  animation: ext-pulse 1s ease-in-out infinite alternate;
+}
+.ext-dot.idle {
+  background: color-mix(in srgb, var(--muted) 60%, var(--border));
+}
+@keyframes ext-pulse {
+  from {
+    opacity: 0.4;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.ext-cmd {
+  margin-top: 6px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--muted);
+  padding: 5px 9px;
+  border-radius: 6px;
+  background: var(--solid-bg, var(--bg));
+  border: 1px solid var(--border);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ext-tools {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 6px 10px;
+  max-height: 200px;
+  overflow-y: auto;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  font-size: 12px;
+}
+.ext-tools li {
+  display: flex;
+  gap: 10px;
+  padding: 3px 0;
+}
+.ext-tools li code {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+.ext-tools li span {
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ext-server-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.ext-form .field {
+  margin-bottom: 10px;
+}
+.ext-seg {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 2px;
+  margin-bottom: 12px;
+  background: var(--solid-bg, var(--bg));
+}
+.ext-seg button {
+  border: 0;
+  background: none;
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  color: var(--muted);
+}
+.ext-seg button.sel {
+  background: color-mix(in srgb, var(--accent2) 18%, transparent);
+  color: var(--fg);
+}
+.ext-presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+}
+.ext-preset {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--raised) 45%, transparent);
+}
+.ext-preset.added {
+  opacity: 0.65;
+}
+.ext-preset-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ext-preset-head .ext-name {
+  font-family: var(--sans);
+  font-size: 13px;
+}
+.ext-needs {
+  margin-top: 10px;
+}
+.ext-needs .field {
+  margin-bottom: 8px;
+}
+.ext-kit-pkgs {
+  margin-top: 6px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* brewcat */
+.ext-hero {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  background: color-mix(in srgb, var(--raised) 45%, transparent);
+}
+.ext-hero .ext-cmd {
+  margin: 0 0 12px;
+  white-space: pre-wrap;
+}
+.ext-panel .pf-status a {
+  color: var(--accent);
+}
+.ext-row.pkg {
+  align-items: center;
+}
+.ext-installed {
+  font-size: 11.5px;
+  color: var(--ok);
+}

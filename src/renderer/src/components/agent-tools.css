@@ -1,0 +1,54 @@
+/* ---------- MCP tool cards (agent mode) ---------- */
+.mcp-badge {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: var(--accent2);
+  border: 1px solid color-mix(in srgb, var(--accent2) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent2) 10%, transparent);
+}
+.mcp-name {
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+.mcp-sep {
+  color: var(--muted);
+}
+.mcp-args {
+  font-size: 11.5px;
+  color: var(--fg);
+  word-break: break-word;
+}
+.mcp-more {
+  display: block;
+  margin: -4px 10px 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent2);
+  font-size: 11px;
+  cursor: pointer;
+}
+.mcp-more:hover {
+  text-decoration: underline;
+}
+.mcp-result {
+  margin: 0 8px 8px;
+  padding: 6px 8px;
+  max-height: 220px;
+  overflow: auto;
+  font-size: 11.5px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--muted);
+}
+.mcp-result.error {
+  color: var(--err);
+  border-color: color-mix(in srgb, var(--err) 45%, var(--border));
+  background: color-mix(in srgb, var(--err) 6%, var(--bg));
+}
