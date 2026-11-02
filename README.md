@@ -187,6 +187,7 @@ from the panel.
 | 🍎 macOS (Homebrew) | `brew install --cask 1985epma/117terminal/117terminal` |
 | 🐧 Linux (Homebrew) | `brew install 1985epma/117terminal/117terminal` |
 | 🐧 Debian / Ubuntu | download the `.deb`, then `sudo apt install ./117Terminal-*.deb` |
+| 🐧 Fedora / RHEL / openSUSE | download the `.rpm`, then `sudo dnf install ./117Terminal-*.rpm` |
 | 🪟 Windows | download the `.msi` and run it (uses PowerShell; `pwsh` if installed) |
 
 > 🛡️ **Builds aren't notarized/signed by a paid certificate yet.** The Homebrew cask clears macOS quarantine for you. With

@@ -29,7 +29,7 @@ jobs:
           - name: Windows
             os: windows-latest
             target: --win
-          # deb + tar.gz x64
+          # deb + rpm + tar.gz x64
           - name: Linux
             os: ubuntu-latest
             target: --linux
@@ -58,7 +58,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends python3 make g++
+          sudo apt-get install -y --no-install-recommends python3 make g++ rpm
 
       - name: Install dependencies
         run: npm ci
@@ -75,7 +75,7 @@ jobs:
 
       # The upstream Electron Linux zip stores files as 0666/0777, and fpm copies
       # those modes into the .deb (a world-writable /opt/117Terminal/117terminal).
-      # Pack the app dir first, drop group/other write, then build deb + tar.gz.
+      # Pack the app dir first, drop group/other write, then build deb + rpm + tar.gz.
       - name: Package (electron-builder, Linux)
         if: runner.os == 'Linux'
         run: |
@@ -94,6 +94,17 @@ jobs:
           fi
           dpkg-deb -I dist/*.deb
 
+      - name: Check .rpm has no world-writable files
+        if: runner.os == 'Linux'
+        run: |
+          WW="$(rpm -qlvp dist/*.rpm | awk '$1 ~ /^-.......w/')"
+          if [ -n "$WW" ]; then
+            echo "::error::World-writable files in .rpm:"
+            echo "$WW"
+            exit 1
+          fi
+          rpm -qip dist/*.rpm
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -103,6 +114,7 @@ jobs:
             dist/*.zip
             dist/*.msi
             dist/*.deb
+            dist/*.rpm
             dist/*.tar.gz
           if-no-files-found: error
           retention-days: 14
@@ -147,6 +159,7 @@ jobs:
           | macOS Intel | \`117Terminal-${VERSION}-mac-x64.dmg\` (or \`.zip\`) |
           | Windows x64 | \`117Terminal-${VERSION}-win-x64.msi\` |
           | Linux x64 (Debian/Ubuntu) | \`117Terminal-${VERSION}-linux-amd64.deb\` |
+          | Linux x64 (Fedora/RHEL/openSUSE) | \`117Terminal-${VERSION}-linux-x86_64.rpm\` |
           | Linux x64 (portable) | \`117Terminal-${VERSION}-linux-x64.tar.gz\` |
 
           \`SHA256SUMS.txt\` lists checksums: \`sha256sum -c SHA256SUMS.txt --ignore-missing\`.
@@ -156,6 +169,7 @@ jobs:
           - **macOS**: open the DMG and drag 117Terminal to Applications. The app is ad-hoc signed (not notarized), so clear the quarantine flag once: \`xattr -dr com.apple.quarantine /Applications/117Terminal.app\`. The brewcat tab needs [Homebrew](https://brew.sh) (\`brew\` on your PATH).
           - **Windows**: run the MSI. It is unsigned, so SmartScreen may warn: choose *More info* then *Run anyway*.
           - **Debian/Ubuntu**: \`sudo apt install ./117Terminal-${VERSION}-linux-amd64.deb\`, then launch \`117terminal\`.
+          - **Fedora/RHEL/openSUSE**: \`sudo dnf install ./117Terminal-${VERSION}-linux-x86_64.rpm\` (or \`sudo zypper install\`), then launch \`117terminal\`.
           - **Other Linux**: \`tar xzf 117Terminal-${VERSION}-linux-x64.tar.gz\` and run \`./117Terminal-${VERSION}-linux-x64/117terminal\`. If it aborts with a sandbox error (Ubuntu 24.04+ restricts user namespaces), prefer the .deb, which installs an AppArmor profile.
           EOF
 

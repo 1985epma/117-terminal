@@ -115,6 +115,12 @@
           "arch": [
             "x64"
           ]
+        },
+        {
+          "target": "rpm",
+          "arch": [
+            "x64"
+          ]
         }
       ]
     },
@@ -124,6 +130,14 @@
         "libgtk-3-0",
         "libxss1",
         "libasound2 | libasound2t64"
+      ]
+    },
+    "rpm": {
+      "depends": [
+        "nss",
+        "gtk3",
+        "libXScrnSaver",
+        "(alsa-lib or alsa-lib-devel)"
       ]
     }
   },
