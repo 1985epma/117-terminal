@@ -15,12 +15,13 @@ const HELP_TEXT = `**Slash commands**
 - \`/mcp\` — MCP servers for the agent · \`/brewcat\` — Homebrew catalog
 - \`/voice\` — voice settings · **⌘⇧Space** talk and it types the command (EN · PT · ES)
 - \`/music\` — Spotify & Apple Music · \`/music next\`, \`/music <song>\`
+- \`/settings\` — every setting in one place (also **⌘,**)
 - \`/clear\` — clear all blocks
 
 **Shortcuts**
 - \`⌘I\` toggle Agent Mode · \`#\` at line start asks the agent once
 - \`↵\` run the proposed command · \`esc\` skip it · \`⌘↵\` run from anywhere
-- \`⌘P\` command palette · \`⌃R\` history · \`⌘K\` clear · \`⌘,\` providers`
+- \`⌘P\` command palette · \`⌃R\` history · \`⌘K\` clear · \`⌘,\` settings`
 
 let nextBlockId = 1
 let nextSessionId = 1

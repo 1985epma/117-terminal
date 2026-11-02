@@ -92,7 +92,7 @@ Or just **talk to it** — in English, Português or Español — and it types t
 └───────────────────────────────────────────────────────────────┘
 ```
 
-**Connect any brain** with `⌘,` (or `/model`). Paste a key, hit **Connect & use**, and the model list loads itself.
+**Connect any brain** in **Settings › AI Agent** (`⌘,` or `/model`). Paste a key, hit **Connect & use**, and the model list loads itself.
 
 | provider | wire | notes |
 |---|---|---|
@@ -112,7 +112,11 @@ server as trusted.
 
 ---
 
-## `$ ./extensions --all` &nbsp;<sub>`⌘⇧X`</sub>
+## `$ ./extensions --all` &nbsp;<sub>`⌘,` · `⌘⇧X`</sub>
+
+Everything lives in one **Settings** panel (`⌘,`, the app menu, or `/settings`): General · Appearance · AI Agent ·
+Voice · MCP servers · Zsh & Prompt · Integrations · Web & HarmonyOS · Shortcuts. The menus and slash commands jump straight
+to the right section.
 
 <table>
 <tr>
@@ -190,6 +194,9 @@ That's how it runs on **HarmonyOS** (PC, tablet, phone), iPads, Chromebooks or a
 | Linux (deb / rpm / brew) | `117terminal --serve` (add `--no-sandbox` for the tar.gz) |
 | Windows | `117Terminal.exe --serve` from its install folder (Start menu → 117Terminal → *Open file location*) |
 
+**No command line?** Open **Settings › Web & HarmonyOS** (or *Shell › Open in Browser*) in the desktop app and press
+**Start web mode**: it shows the link for this computer and, if you allow other devices, the one for your network.
+
 **On a HarmonyOS PC** (ARM): HarmonyOS apps can't run Electron directly, but HarmonyOS PC ships a Linux environment
 (Huawei's *Converged Development Engine*, in preview). Inside it, unpack `117Terminal-X.Y.Z-linux-arm64.tar.gz`, run
 `./117terminal --serve --no-sandbox` (no display needed: it goes headless by itself) and open the printed
@@ -223,6 +230,7 @@ In the browser, `⌘T`/`⌘W` belong to the browser, so tabs use **`⌥T` / `⌥
 /spotify [link]    /applemusic [search]
 /voice             voice: language (EN · PT · ES), engine, mode
 /theme             skins, transparency, blur
+/settings          every setting in one place
 /clear  /stop      clear blocks · stop the agent
 ```
 
@@ -233,9 +241,9 @@ In the browser, `⌘T`/`⌘W` belong to the browser, so tabs use **`⌥T` / `⌥
 | `⌘I` · `#` | agent mode · ask once |
 | `⌘K` | clear blocks |
 | `⌃R` | history search |
-| `⌥⌘T` | themes & transparency |
-| `⌘⇧X` | extensions |
-| `⌘,` | AI providers |
+| `⌘,` | settings (everything) |
+| `⌥⌘T` | settings › appearance |
+| `⌘⇧X` | settings › zsh & prompt |
 | `⌘⇧Space` | talk → it types (voice) |
 
 <div align="center">

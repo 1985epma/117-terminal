@@ -69,6 +69,12 @@ export function createApi({ invoke, send, listen, platform }) {
       prefs: () => invoke('window:prefs'),
       blur: (on) => invoke('window:blur', on)
     },
+    serve: {
+      status: () => invoke('serve:status'),
+      start: (opts) => invoke('serve:start', opts),
+      stop: () => invoke('serve:stop')
+    },
+    openExternal: (url) => invoke('app:open', url),
     clipboard: { write: (text) => send('clipboard:write', text) },
     info: () => invoke('app:info'),
     onMenu: listen('menu:action')

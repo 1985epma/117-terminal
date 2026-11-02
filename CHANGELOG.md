@@ -13,7 +13,15 @@ All notable changes to 117Terminal. Versions follow [SemVer](https://semver.org)
 - Social preview card (`docs/social-preview.png`, 1280×640) so shared links show 117Terminal instead of GitHub's
   default card. It is centred so WhatsApp's square crop still shows the icon and name.
 
+- **Settings** (`⌘,`, `/settings`): one panel with General, Appearance, AI Agent, Voice, MCP, Zsh & Prompt,
+  Integrations, Web & HarmonyOS and Shortcuts. Replaces the separate Agent, Themes and Extensions panels.
+- **Start web mode from the app**: Settings › Web & HarmonyOS starts and stops the browser UI, with copyable links for
+  this computer and the local network.
+
 ### Changed
+- Menus reorganized: *Settings…* in the app menu, new **Agent**, **Music** and **Help** menus, a slimmer **Shell** menu,
+  and Reload/DevTools moved under *View › Developer*. Old shortcuts (`⌥⌘T`, `⌘⇧X`) and slash commands open the matching
+  Settings section.
 - Shorter repository description and GitHub topics.
 
 ## [0.1.2] — 2026-11-02

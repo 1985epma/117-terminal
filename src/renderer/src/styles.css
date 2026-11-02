@@ -1210,6 +1210,7 @@ button.link.recommend {
   padding: 8px;
   transition: border-color 0.12s, transform 0.12s;
 }
+.theme-card:hover,
 .theme-card.focus {
   border-color: color-mix(in srgb, var(--accent) 60%, var(--border));
   transform: translateY(-1px);

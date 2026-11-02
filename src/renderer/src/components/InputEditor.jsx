@@ -28,10 +28,11 @@ const SLASH = [
   { name: 'prompt', desc: 'Prompt themes: Powerlevel10k, Starship, Pure…' },
   { name: 'mcp', desc: 'MCP servers for the agent' },
   { name: 'brewcat', desc: 'Browse and install Homebrew packages with brewcat' },
+  { name: 'settings', desc: 'All settings: appearance, agent, voice, shell, web…' },
   { name: 'clear', desc: 'Clear all blocks' },
   { name: 'help', desc: 'Show what 117Terminal can do' }
 ]
-const SLASH_RE = new RegExp(`^/(${SLASH.map((c) => c.name).join('|')}|settings)(?:\\s+([\\s\\S]*))?$`)
+const SLASH_RE = new RegExp(`^/(${SLASH.map((c) => c.name).join('|')})(?:\\s+([\\s\\S]*))?$`)
 
 function commonPrefix(items) {
   if (!items.length) return ''
@@ -147,15 +148,16 @@ export default function InputEditor({ session, running, onSubmit, onOpenHistory,
       setMode('agent')
       if (arg) askAgent(arg)
     } else if (name === 'shell') setMode('shell')
-    else if (name === 'model' || name === 'settings') onOpenSettings()
+    else if (name === 'model') onOpenSettings()
+    else if (name === 'settings') window.dispatchEvent(new CustomEvent('eterm-action', { detail: 'settings' }))
     else if (name === 'stop') agent.stop()
     else if (name === 'clear') session.clear()
     else if (name === 'music' || name === 'spotify' || name === 'applemusic') runMusic(name, arg)
-    else if (name === 'theme') window.dispatchEvent(new CustomEvent('eterm-action', { detail: 'themes' }))
-    else if (name === 'voice') window.dispatchEvent(new CustomEvent('eterm-action', { detail: 'extensions:voice' }))
+    else if (name === 'theme') window.dispatchEvent(new CustomEvent('eterm-action', { detail: 'settings:appearance' }))
+    else if (name === 'voice') window.dispatchEvent(new CustomEvent('eterm-action', { detail: 'settings:voice' }))
     else if (['plugins', 'prompt', 'mcp', 'brewcat'].includes(name)) {
-      const tab = name === 'plugins' ? 'zsh' : name
-      window.dispatchEvent(new CustomEvent('eterm-action', { detail: `extensions:${tab}` }))
+      const section = { plugins: 'shell', prompt: 'prompt', mcp: 'mcp', brewcat: 'integrations' }[name]
+      window.dispatchEvent(new CustomEvent('eterm-action', { detail: `settings:${section}` }))
     }
     else if (name === 'help') session.showHelp()
     return true

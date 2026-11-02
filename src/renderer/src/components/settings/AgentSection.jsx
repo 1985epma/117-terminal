@@ -1,5 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
-import { aiConfig } from '../lib/aiConfig.js'
+import { aiConfig } from '../../lib/aiConfig.js'
 
 const HINTS = {
   anthropic: 'Claude Opus 5.5 is the default. Paste a key from the Anthropic Console.',
@@ -155,44 +155,30 @@ function ProviderForm({ p, isActive }) {
   )
 }
 
-export default function AgentSettings({ onClose }) {
+export default function AgentSection() {
   const cfg = useSyncExternalStore(aiConfig.subscribe, aiConfig.get)
   const [selected, setSelected] = useState(() => cfg.active || 'anthropic')
   const p = cfg.providers.find((x) => x.id === selected)
 
-  useEffect(() => {
-    const onKey = (e) => e.key === 'Escape' && onClose()
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
   return (
-    <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="settings-panel">
-        <div className="settings-side">
-          <div className="settings-title">✦ Agent providers</div>
-          {cfg.providers.map((x) => (
-            <button key={x.id} className={`prov ${x.id === selected ? 'sel' : ''}`} onClick={() => setSelected(x.id)}>
-              <span className={`dot ${x.id === cfg.active ? 'active' : x.hasKey || !x.needsKey ? 'ready' : ''}`} />
-              {x.label}
-            </button>
-          ))}
-          <label className="toggle">
-            <input
-              type="checkbox"
-              checked={cfg.autoRunSafe}
-              onChange={async (e) => aiConfig.set(await window.eterm.ai.options({ autoRunSafe: e.target.checked }))}
-            />
-            <span>Auto-run read-only commands (ls, cat, git status…)</span>
-          </label>
-        </div>
-        <div className="settings-main">
-          {p ? <ProviderForm key={p.id} p={p} isActive={cfg.active === p.id} /> : null}
-          <button className="settings-close" onClick={onClose} aria-label="Close">
-            ×
+    <div className="agent-section">
+      <div className="agent-providers">
+        {cfg.providers.map((x) => (
+          <button key={x.id} className={`prov ${x.id === selected ? 'sel' : ''}`} onClick={() => setSelected(x.id)}>
+            <span className={`dot ${x.id === cfg.active ? 'active' : x.hasKey || !x.needsKey ? 'ready' : ''}`} />
+            {x.label}
           </button>
-        </div>
+        ))}
+        <label className="toggle">
+          <input
+            type="checkbox"
+            checked={cfg.autoRunSafe}
+            onChange={async (e) => aiConfig.set(await window.eterm.ai.options({ autoRunSafe: e.target.checked }))}
+          />
+          <span>Auto-run read-only commands (ls, cat, git status…)</span>
+        </label>
       </div>
+      <div className="agent-form">{p ? <ProviderForm key={p.id} p={p} isActive={cfg.active === p.id} /> : null}</div>
     </div>
   )
 }

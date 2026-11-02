@@ -5,9 +5,7 @@ import TabBar from './components/TabBar.jsx'
 import TerminalView from './components/TerminalView.jsx'
 import CommandPalette from './components/CommandPalette.jsx'
 import HistorySearch from './components/HistorySearch.jsx'
-import AgentSettings from './components/AgentSettings.jsx'
-import ThemePicker from './components/ThemePicker.jsx'
-import ExtensionsPanel from './components/extensions/ExtensionsPanel.jsx'
+import SettingsPanel from './components/settings/SettingsPanel.jsx'
 import MusicPanel from './components/music/MusicPanel.jsx'
 import { music } from './lib/music.js'
 import { voice } from './lib/voice.js'
@@ -30,7 +28,7 @@ export default function App() {
   const [sessions, setSessions] = useState(() => [new Session()])
   const [activeId, setActiveId] = useState(() => sessions[0].id)
   const [settings, setSettings] = useState(loadSettings)
-  const [overlay, setOverlay] = useState(null) // 'palette' | 'history' | 'agent' | 'themes' | 'extensions:<tab>' | null
+  const [overlay, setOverlay] = useState(null) // 'palette' | 'history' | 'settings:<section>' | 'music[:source]' | null
   const [blur, setBlur] = useState(true)
   const [, force] = useState(0)
   const views = useRef(new Map()) // session id -> TerminalView imperative api
@@ -161,19 +159,22 @@ export default function App() {
           active._emit()
         }
       },
-      { id: 'agentSettings', label: 'Agent Settings: Connect AI Providers', hint: '⌘,', run: () => setOverlay('agent') },
+      { id: 'settings', label: 'Settings…', hint: '⌘,', run: () => setOverlay('settings:general') },
+      { id: 'settings:agent', label: 'Settings: AI Agent (providers, keys, models)', run: () => setOverlay('settings:agent') },
       { id: 'interrupt', label: 'Interrupt Running Command', hint: '⌃C', run: () => active.interrupt() },
-      { id: 'themes', label: 'Themes & Transparency…', hint: '⌥⌘T', run: () => setOverlay('themes') },
+      { id: 'settings:appearance', label: 'Settings: Themes & Transparency', hint: '⌥⌘T', run: () => setOverlay('settings:appearance') },
       { id: 'voice', label: 'Voice Command (talk, it types)', hint: '⌘⇧Space', run: () => voice.toggle(handleVoiceText) },
-      { id: 'extensions:voice', label: 'Voice Settings: engine, language, mode', hint: '/voice', run: () => setOverlay('extensions:voice') },
+      { id: 'settings:voice', label: 'Settings: Voice (engine, language, mode)', hint: '/voice', run: () => setOverlay('settings:voice') },
       { id: 'music', label: 'Music: Spotify & Apple Music…', hint: '⌥⌘M', run: () => setOverlay('music') },
       { id: 'music:playpause', label: 'Music: Play / Pause', hint: '⌥⌘P', run: () => musicCommand('playpause') },
       { id: 'music:next', label: 'Music: Next Track', hint: '⌥⌘→', run: () => musicCommand('next') },
       { id: 'music:previous', label: 'Music: Previous Track', hint: '⌥⌘←', run: () => musicCommand('previous') },
-      { id: 'extensions', label: 'Extensions: Zsh Plugins', hint: '⌘⇧X', run: () => setOverlay('extensions:zsh') },
-      { id: 'extensions:prompt', label: 'Extensions: Prompt (Powerlevel10k, Starship…)', hint: '/prompt', run: () => setOverlay('extensions:prompt') },
-      { id: 'extensions:mcp', label: 'Extensions: MCP Servers', hint: '/mcp', run: () => setOverlay('extensions:mcp') },
-      { id: 'extensions:brewcat', label: 'Extensions: brewcat (Homebrew catalog)', hint: '/brewcat', run: () => setOverlay('extensions:brewcat') },
+      { id: 'settings:shell', label: 'Settings: Zsh Plugins', hint: '⌘⇧X', run: () => setOverlay('settings:shell') },
+      { id: 'settings:prompt', label: 'Settings: Prompt (Powerlevel10k, Starship…)', hint: '/prompt', run: () => setOverlay('settings:prompt') },
+      { id: 'settings:mcp', label: 'Settings: MCP Servers', hint: '/mcp', run: () => setOverlay('settings:mcp') },
+      { id: 'settings:integrations', label: 'Settings: Integrations (brewcat, music)', hint: '/brewcat', run: () => setOverlay('settings:integrations') },
+      { id: 'settings:web', label: 'Settings: Web Mode & HarmonyOS', run: () => setOverlay('settings:web') },
+      { id: 'settings:shortcuts', label: 'Settings: Keyboard Shortcuts', run: () => setOverlay('settings:shortcuts') },
       {
         id: 'togglePrompt',
         label: settings.showPrompt ? 'Hide My Zsh Prompt (PS1)' : 'Show My Zsh Prompt (PS1)',
@@ -195,11 +196,15 @@ export default function App() {
   const runAction = useCallback(
     (id) => {
       if (id === 'palette') return setOverlay((o) => (o === 'palette' ? null : 'palette'))
+      // Older ids from menus and slash commands now open a Settings section.
+      const legacy = { agentSettings: 'settings:agent', themes: 'settings:appearance', extensions: 'settings:shell' }[id]
+      if (legacy || id.startsWith('extensions:')) return setOverlay(legacy || id.replace('extensions:', 'settings:'))
+      if (id.startsWith('settings:') || id === 'settings') return setOverlay(id === 'settings' ? 'settings:general' : id)
+      if (id.startsWith('music-panel:')) return setOverlay(id.replace('music-panel:', 'music:'))
       const a = actions.find((x) => x.id === id)
-      // Slash commands can open any Extensions tab directly (extensions:<tab>).
-      if (!a) return (id.startsWith('extensions:') || id.startsWith('music-panel:')) && setOverlay(id.replace('music-panel:', 'music:'))
+      if (!a) return
       a.run()
-      if (!['history', 'agentSettings', 'themes', 'music', 'voice'].includes(id) && !id.startsWith('extensions')) focusInput()
+      if (!['history', 'music', 'voice'].includes(id)) focusInput()
     },
     [actions] // eslint-disable-line react-hooks/exhaustive-deps
   )
@@ -258,7 +263,7 @@ export default function App() {
         onMusic={() => setOverlay('music')}
         onVoice={() => runActionRef.current('voice')}
       />
-      <VoiceHUD onOpenSettings={() => setOverlay('extensions:voice')} />
+      <VoiceHUD onOpenSettings={() => setOverlay('settings:voice')} />
       <div className="views">
         {sessions.map((s) => (
           <TerminalView
@@ -271,7 +276,7 @@ export default function App() {
             showPrompt={settings.showPrompt}
             ref={(api) => (api ? views.current.set(s.id, api) : views.current.delete(s.id))}
             onOpenHistory={() => setOverlay('history')}
-            onOpenSettings={() => setOverlay('agent')}
+            onOpenSettings={() => setOverlay('settings:agent')}
           />
         ))}
       </div>
@@ -289,30 +294,21 @@ export default function App() {
           }}
         />
       )}
-      {overlay === 'themes' && (
-        <ThemePicker
-          current={settings.theme}
-          opacity={settings.opacity}
-          onOpacity={(opacity) => setSettings((s) => ({ ...s, opacity }))}
-          blur={blur}
-          onBlur={async (on) => setBlur((await window.eterm.window.blur(on)).blur)}
-          onPick={(key) => setSettings((s) => ({ ...s, theme: key }))}
-          onClose={() => {
-            setOverlay(null)
-            focusInput()
-          }}
-        />
-      )}
-      {overlay?.startsWith('extensions:') && (
-        <ExtensionsPanel
-          initialTab={overlay.split(':')[1]}
+      {overlay?.startsWith('settings:') && (
+        <SettingsPanel
+          initial={overlay.slice('settings:'.length)}
           onClose={() => {
             setOverlay(null)
             focusInput()
           }}
           onRunInTerminal={runInTerminal}
-          showPrompt={settings.showPrompt}
-          onShowPromptChange={(on) => setSettings((s) => ({ ...s, showPrompt: on }))}
+          onOpenMusic={(source) => setOverlay(`music:${source}`)}
+          settings={settings}
+          setSettings={setSettings}
+          defaultFont={DEFAULT_FONT}
+          blur={blur}
+          onBlur={async (on) => setBlur((await window.eterm.window.blur(on)).blur)}
+          actions={actions}
         />
       )}
       {(overlay === 'music' || overlay?.startsWith('music:')) && (
@@ -323,14 +319,6 @@ export default function App() {
             focusInput()
           }}
           onRunInTerminal={runInTerminal}
-        />
-      )}
-      {overlay === 'agent' && (
-        <AgentSettings
-          onClose={() => {
-            setOverlay(null)
-            focusInput()
-          }}
         />
       )}
       {overlay === 'history' && (

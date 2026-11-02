@@ -1,5 +1,6 @@
 import { app, BrowserWindow, Menu, shell as electronShell } from 'electron'
 import path from 'node:path'
+import os from 'node:os'
 import fs from 'node:fs'
 import { registerAiIpc, importKeys } from './ai.js'
 import { registerZshIpc } from './zsh-plugins.js'
@@ -105,8 +106,29 @@ function send(channel, ...args) {
 
 function buildMenu() {
   const cmd = (action) => () => send('menu:action', action)
+  const mac = process.platform === 'darwin'
+  const settings = { label: mac ? 'Settings…' : 'Preferences…', accelerator: 'CmdOrCtrl+,', click: cmd('settings') }
   const template = [
-    ...(process.platform === 'darwin' ? [{ role: 'appMenu' }] : []),
+    ...(mac
+      ? [
+          {
+            label: app.name,
+            submenu: [
+              { role: 'about' },
+              { type: 'separator' },
+              settings,
+              { type: 'separator' },
+              { role: 'services' },
+              { type: 'separator' },
+              { role: 'hide' },
+              { role: 'hideOthers' },
+              { role: 'unhide' },
+              { type: 'separator' },
+              { role: 'quit' }
+            ]
+          }
+        ]
+      : []),
     {
       label: 'Shell',
       submenu: [
@@ -117,16 +139,9 @@ function buildMenu() {
         { label: 'Command Palette', accelerator: 'CmdOrCtrl+P', click: cmd('palette') },
         { label: 'Search History', accelerator: 'Ctrl+R', click: cmd('history') },
         { type: 'separator' },
-        { label: 'Toggle Agent Mode', accelerator: 'CmdOrCtrl+I', click: cmd('agentMode') },
-        { label: 'New Agent Conversation', accelerator: 'CmdOrCtrl+Shift+I', click: cmd('agentReset') },
-        { label: 'Agent Settings…', accelerator: 'CmdOrCtrl+,', click: cmd('agentSettings') },
-        { type: 'separator' },
-        { label: 'Extensions: Zsh, Prompt, MCP, brewcat…', accelerator: 'CmdOrCtrl+Shift+X', click: cmd('extensions') },
-        { label: 'Voice Command', accelerator: 'CmdOrCtrl+Shift+Space', click: cmd('voice') },
-        { label: 'Music…', accelerator: 'CmdOrCtrl+Alt+M', click: cmd('music') },
-        { label: 'Play / Pause Music', accelerator: 'CmdOrCtrl+Alt+P', click: cmd('music:playpause') },
-        { label: 'Next Track', accelerator: 'CmdOrCtrl+Alt+Right', click: cmd('music:next') },
-        { label: 'Previous Track', accelerator: 'CmdOrCtrl+Alt+Left', click: cmd('music:previous') }
+        { label: 'Zsh Plugins && Prompt…', accelerator: 'CmdOrCtrl+Shift+X', click: cmd('settings:shell') },
+        { label: 'Open in Browser (Web Mode)…', click: cmd('settings:web') },
+        ...(mac ? [] : [{ type: 'separator' }, settings, { type: 'separator' }, { role: 'quit' }])
       ]
     },
     { role: 'editMenu' },
@@ -136,20 +151,94 @@ function buildMenu() {
         { label: 'Bigger Text', accelerator: 'CmdOrCtrl+=', click: cmd('fontUp') },
         { label: 'Smaller Text', accelerator: 'CmdOrCtrl+-', click: cmd('fontDown') },
         { label: 'Reset Text Size', accelerator: 'CmdOrCtrl+0', click: cmd('fontReset') },
-        { label: 'Themes…', accelerator: 'CmdOrCtrl+Alt+T', click: cmd('themes') },
+        { type: 'separator' },
+        { label: 'Themes && Transparency…', accelerator: 'CmdOrCtrl+Alt+T', click: cmd('settings:appearance') },
         { type: 'separator' },
         { label: 'Next Tab', accelerator: 'CmdOrCtrl+Shift+]', click: cmd('nextTab') },
         { label: 'Previous Tab', accelerator: 'CmdOrCtrl+Shift+[', click: cmd('prevTab') },
         { type: 'separator' },
-        { role: 'reload' },
-        { role: 'toggleDevTools' },
-        { role: 'togglefullscreen' }
+        { role: 'togglefullscreen' },
+        { label: 'Developer', submenu: [{ role: 'reload' }, { role: 'toggleDevTools' }] }
       ]
     },
-    { role: 'windowMenu' }
+    {
+      label: 'Agent',
+      submenu: [
+        { label: 'Toggle Agent Mode', accelerator: 'CmdOrCtrl+I', click: cmd('agentMode') },
+        { label: 'New Conversation', accelerator: 'CmdOrCtrl+Shift+I', click: cmd('agentReset') },
+        { type: 'separator' },
+        { label: 'Voice Command', accelerator: 'CmdOrCtrl+Shift+Space', click: cmd('voice') },
+        { type: 'separator' },
+        { label: 'Providers && Models…', click: cmd('settings:agent') },
+        { label: 'MCP Servers…', click: cmd('settings:mcp') },
+        { label: 'Voice Settings…', click: cmd('settings:voice') }
+      ]
+    },
+    {
+      label: 'Music',
+      submenu: [
+        { label: 'Open Player…', accelerator: 'CmdOrCtrl+Alt+M', click: cmd('music') },
+        { type: 'separator' },
+        { label: 'Play / Pause', accelerator: 'CmdOrCtrl+Alt+P', click: cmd('music:playpause') },
+        { label: 'Next Track', accelerator: 'CmdOrCtrl+Alt+Right', click: cmd('music:next') },
+        { label: 'Previous Track', accelerator: 'CmdOrCtrl+Alt+Left', click: cmd('music:previous') }
+      ]
+    },
+    { role: 'windowMenu' },
+    {
+      role: 'help',
+      submenu: [
+        { label: 'Keyboard Shortcuts', click: cmd('settings:shortcuts') },
+        { label: '117Terminal on GitHub', click: () => electronShell.openExternal('https://github.com/1985epma/117-terminal') },
+        { label: 'Report an Issue', click: () => electronShell.openExternal('https://github.com/1985epma/117-terminal/issues') }
+      ]
+    }
   ]
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
+
+// Settings › Web: start the browser UI from the desktop app.
+let web = null
+function lanAddress() {
+  for (const list of Object.values(os.networkInterfaces())) {
+    for (const a of list || []) if (a.family === 'IPv4' && !a.internal) return a.address
+  }
+  return null
+}
+function webStatus() {
+  if (serve) return { mode: 'serve' }
+  if (!web) return { running: false }
+  const lan = web.network && lanAddress()
+  return {
+    running: true,
+    port: web.port,
+    network: web.network,
+    url: web.url,
+    lanUrl: lan ? web.url.replace('localhost', lan) : null
+  }
+}
+ipcMain.handle('serve:status', () => webStatus())
+ipcMain.handle('serve:start', async (_e, { port = 7117, network = false } = {}) => {
+  if (serve) return webStatus()
+  if (web) await web.close()
+  web = null
+  try {
+    const host = network ? '0.0.0.0' : '127.0.0.1'
+    const r = await startWebServer({ root: path.join(__dirname, '../renderer'), port: Number(port) || 7117, host })
+    web = { ...r, port: Number(port) || 7117, network }
+    return webStatus()
+  } catch (err) {
+    return { running: false, error: err.code === 'EADDRINUSE' ? `Port ${port} is already in use` : err.message }
+  }
+})
+ipcMain.handle('serve:stop', async () => {
+  if (web) await web.close()
+  web = null
+  return webStatus()
+})
+ipcMain.handle('app:open', (_e, url) => {
+  if (/^https?:\/\//.test(url)) electronShell.openExternal(url)
+})
 
 ipcMain.handle('window:prefs', () => windowPrefs())
 ipcMain.handle('window:blur', (_e, on) => {

@@ -149,5 +149,5 @@ export function registerCoreIpc() {
   })
 
   ipcMain.on('clipboard:write', (_e, text) => clipboard.writeText(text))
-  ipcMain.handle('app:info', () => ({ home: os.homedir(), platform: process.platform }))
+  ipcMain.handle('app:info', () => ({ home: os.homedir(), platform: process.platform, version: app.getVersion() }))
 }

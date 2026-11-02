@@ -120,7 +120,13 @@ export function startWebServer({ root, port = 7117, host = '127.0.0.1', token })
     server.once('error', reject)
     server.listen(port, host, () => {
       const shown = host === '0.0.0.0' || host === '::' ? 'localhost' : host
-      resolve({ url: `http://${shown}:${port}/?token=${token}`, token, server })
+      const close = () =>
+        new Promise((done) => {
+          for (const ws of wss.clients) ws.terminate()
+          wss.close()
+          server.close(() => done())
+        })
+      resolve({ url: `http://${shown}:${port}/?token=${token}`, token, server, close })
     })
   })
 }

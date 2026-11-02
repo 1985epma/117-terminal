@@ -57,6 +57,7 @@ api.voice.permission = async () => true
 api.clipboard.write = (text) => navigator.clipboard?.writeText(text)
 api.window.prefs = async () => ({ blur: false })
 api.window.blur = async () => ({ blur: false })
+api.openExternal = async (url) => /^https?:\/\//.test(url) && window.open(url, '_blank', 'noopener')
 
 // No app menu in a browser: map its shortcuts here. ⌘T/⌘W belong to the
 // browser, so tabs use ⌥T/⌥W.
@@ -67,10 +68,10 @@ const KEYS = [
   [(e) => (e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'p', 'palette'],
   [(e) => e.ctrlKey && !e.metaKey && e.key === 'r', 'history'],
   [(e) => (e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'i', 'agentMode'],
-  [(e) => (e.metaKey || e.ctrlKey) && e.key === ',', 'agentSettings'],
-  [(e) => (e.metaKey || e.ctrlKey) && e.shiftKey && e.code === 'KeyX', 'extensions'],
+  [(e) => (e.metaKey || e.ctrlKey) && e.key === ',', 'settings'],
+  [(e) => (e.metaKey || e.ctrlKey) && e.shiftKey && e.code === 'KeyX', 'settings:shell'],
   [(e) => (e.metaKey || e.ctrlKey) && e.shiftKey && e.code === 'Space', 'voice'],
-  [(e) => (e.metaKey || e.ctrlKey) && e.altKey && e.code === 'KeyT', 'themes']
+  [(e) => (e.metaKey || e.ctrlKey) && e.altKey && e.code === 'KeyT', 'settings:appearance']
 ]
 window.addEventListener(
   'keydown',
